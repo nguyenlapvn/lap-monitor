@@ -10,4 +10,4 @@ data/
 
 # Local config (use config.example.yaml as the template).
 # Targets live in data/ (the store), so they're already ignored above.
-config.yaml
+# config.yaml

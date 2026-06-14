@@ -1,0 +1,88 @@
+# =====================================================================
+#  lap-monitor - configuration file
+#  Edit this file to add/remove targets and enable/disable alerts.
+#  No need to touch the code.
+# =====================================================================
+
+settings:
+  interval: 30      # Seconds to wait between scans
+  timeout: 8        # Default timeout per check (seconds)
+  history: 20       # Number of recent results kept for the sparkline / uptime %
+  parallel: true    # true = check targets concurrently (faster with many targets)
+  workers: 8        # Max threads when parallel = true (keep low to save RAM)
+  sort_down_first: true   # true = push DOWN targets to the top so issues stand out
+
+# ---------------------------------------------------------------------
+#  Targets are managed with the CLI (stored in the data store, not here):
+#    lap-monitor add http https://example.com
+#    lap-monitor add ping 1.1.1.1
+#    lap-monitor add tcp 10.0.0.5:22
+#    lap-monitor list / remove <id> / import <file.json>
+# ---------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+#  Alerting
+#  Only fires when a target CHANGES state (UP->DOWN or DOWN->UP),
+#  never spammy.
+#  Disabled by default. To enable Telegram: enabled: true + fill in token & chat_id.
+# ---------------------------------------------------------------------
+alerts:
+  telegram:
+    enabled: false
+    bot_token: ""    # From @BotFather
+    chat_id: ""      # Target chat/group ID
+
+# ---------------------------------------------------------------------
+#  Storage (persistence)
+#  Saves data to a real store instead of keeping it only in memory:
+#    - events   : a log of state changes (UP<->DOWN) with timestamps
+#    - snapshot : the last known status per target (restored on restart)
+#  The "Recent events" quadrant reads from here.
+#  Nothing is hardcoded - choose the backend and path below.
+# ---------------------------------------------------------------------
+storage:
+  enabled: true
+  backend: sqlite          # sqlite | json
+  path: "data/monitor.db"  # for json use e.g. "data/monitor.json"
+  keep_events: 200         # max number of recent events to retain
+
+# ---------------------------------------------------------------------
+#  Market panel - Bitcoin/crypto (CoinGecko) + Vietnam gold (PNJ).
+#  Both are free, key-less public APIs, so no secrets/.env needed here.
+#  Shown in the two bottom-left cells of the dashboard.
+# ---------------------------------------------------------------------
+market:
+  enabled: true
+  refresh: 60              # seconds between API refreshes (these are external APIs)
+  timeout: 10              # per-request timeout (seconds)
+  crypto:
+    enabled: true
+    vs_currency: usd       # quote currency (CoinGecko)
+    coins:                 # CoinGecko ids (long list auto-scrolls in the panel)
+      - bitcoin
+      - ethereum
+      - binancecoin
+      - solana
+      - ripple
+      - cardano
+      - dogecoin
+      - tron
+      - avalanche-2
+      - chainlink
+      - polkadot
+      - litecoin
+      - shiba-inu
+      - uniswap
+      - cosmos
+      - stellar
+      - monero
+      - bitcoin-cash
+      - near
+      - aptos
+      - arbitrum
+      - optimism
+  gold:
+    enabled: true
+    # PNJ product codes (masp) to show; empty list [] = show all.
+    # Examples: SJC (vàng miếng SJC), N24K (nhẫn trơn PNJ 999.9), PNJ, 24K
+    products: [SJC, N24K, PNJ, "24K"]
