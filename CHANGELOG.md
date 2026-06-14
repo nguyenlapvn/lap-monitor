@@ -8,6 +8,28 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 (`__version__`) and is shown in the dashboard header and via
 `python3 -m lap_monitor --version`.
 
+## [3.2.0] - 2026-06-15
+### Added
+- **Market cells** (`market.py`): bottom-left now shows **₿ Crypto** prices with
+  24h change (CoinGecko) and **🥇 Vietnam gold** buy/sell with up/down arrows
+  (PNJ). Both are free, key-less public APIs - no secrets/`.env` needed. Fetched
+  on a background thread every `market.refresh` seconds (default 60, min 15) and
+  cached, so the API isn't hit on every repaint.
+- Crypto list ships with **22 popular coins** (BTC, ETH, BNB, SOL, XRP, ADA,
+  DOGE, TRX, AVAX, LINK, DOT, LTC, SHIB, UNI, ATOM, XLM, XMR, BCH, NEAR, APT,
+  ARB, OP); edit `market.crypto.coins` to taste.
+- **Auto-scrolling** target/price tables: when a list is taller than its cell,
+  the visible window scrolls upward over time (DOWN targets stay pinned). No
+  more silently cropped rows.
+- **`lapm`** short alias for the `lap-monitor` CLI (symlink installed by
+  `install.sh`, removed by `uninstall.sh`).
+
+### Changed
+- First cell now stacks **This machine** (top) and **Summary** (bottom) in one
+  cell, freeing the bottom row for the Crypto and Gold cells. The "Recent events"
+  cell was removed from the dashboard (events are still recorded to storage).
+- `build_layout()` takes a `market` object instead of `events`.
+
 ## [3.1.0] - 2026-06-14
 ### Changed
 - Dashboard is now a **6-cell grid** (3 top, 3 bottom) instead of 4 quadrants.
@@ -97,6 +119,7 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 - Telegram alerts on state change (opt-in via config).
 - Optional concurrent checks; `config.yaml` configuration.
 
+[3.2.0]: #320---2026-06-15
 [3.1.0]: #310---2026-06-14
 [3.0.0]: #300---2026-06-14
 [2.2.0]: #220---2026-06-14

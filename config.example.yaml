@@ -53,7 +53,29 @@ market:
   crypto:
     enabled: true
     vs_currency: usd       # quote currency (CoinGecko)
-    coins: [bitcoin, ethereum]   # CoinGecko ids; add e.g. solana, binancecoin
+    coins:                 # CoinGecko ids (long list auto-scrolls in the panel)
+      - bitcoin
+      - ethereum
+      - binancecoin
+      - solana
+      - ripple
+      - cardano
+      - dogecoin
+      - tron
+      - avalanche-2
+      - chainlink
+      - polkadot
+      - litecoin
+      - shiba-inu
+      - uniswap
+      - cosmos
+      - stellar
+      - monero
+      - bitcoin-cash
+      - near
+      - aptos
+      - arbitrum
+      - optimism
   gold:
     enabled: true
     # PNJ product codes (masp) to show; empty list = show all.

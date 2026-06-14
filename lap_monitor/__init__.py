@@ -9,9 +9,10 @@ Modules:
     system  - local machine stats (CPU/RAM/disk/load/uptime)
     alerts  - alert channels (Telegram) + state-change dispatch
     storage - SQLite / JSON persistence
-    ui      - 4-quadrant terminal rendering
+    market  - crypto (CoinGecko) + Vietnam gold (PNJ) price fetcher
+    ui      - 6-cell terminal rendering
     app     - engine + run/serve/dashboard modes
 """
 
 __app_name__ = "lap-monitor"
-__version__ = "3.1.0"
+__version__ = "3.2.0"

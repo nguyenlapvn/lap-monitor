@@ -27,6 +27,12 @@ _SYMBOLS = {
     "bitcoin": "BTC", "ethereum": "ETH", "binancecoin": "BNB",
     "tether": "USDT", "solana": "SOL", "ripple": "XRP",
     "cardano": "ADA", "dogecoin": "DOGE", "tron": "TRX",
+    "avalanche-2": "AVAX", "chainlink": "LINK", "polkadot": "DOT",
+    "litecoin": "LTC", "shiba-inu": "SHIB", "uniswap": "UNI",
+    "cosmos": "ATOM", "stellar": "XLM", "monero": "XMR",
+    "bitcoin-cash": "BCH", "near": "NEAR", "aptos": "APT",
+    "arbitrum": "ARB", "optimism": "OP", "polygon-ecosystem-token": "POL",
+    "internet-computer": "ICP", "filecoin": "FIL", "vechain": "VET",
 }
 
 
