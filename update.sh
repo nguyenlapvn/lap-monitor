@@ -8,6 +8,15 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Use sudo only when not already root (minimal Debian may not have sudo).
+if [ "$(id -u)" -eq 0 ]; then
+  SUDO=""
+elif command -v sudo >/dev/null 2>&1; then
+  SUDO="sudo"
+else
+  SUDO=""
+fi
+
 echo "==> Current version:"
 python3 -m lap_monitor --version || true
 
@@ -25,7 +34,7 @@ fi
 # If running as the 'lap-monitor' systemd service, restart it.
 if command -v systemctl >/dev/null 2>&1 && systemctl is-enabled --quiet lap-monitor 2>/dev/null; then
   echo "==> Restarting systemd service 'lap-monitor'..."
-  sudo systemctl restart lap-monitor
+  $SUDO systemctl restart lap-monitor
   echo "    Done. Check status:  systemctl status lap-monitor"
 else
   echo "==> Not a systemd service. If running under tmux, restart it manually:"
