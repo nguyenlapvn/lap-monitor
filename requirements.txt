@@ -1,0 +1,4 @@
+# Terminal Monitor Dashboard - Python dependencies
+# Install: pip3 install -r requirements.txt --break-system-packages
+pyyaml>=6.0
+rich>=13.0

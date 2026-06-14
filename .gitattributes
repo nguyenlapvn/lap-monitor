@@ -1,0 +1,7 @@
+# Normalize line endings. Shell scripts MUST be LF or the shebang breaks on Linux.
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf

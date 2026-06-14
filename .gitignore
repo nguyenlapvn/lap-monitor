@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Runtime data (SQLite / JSON store)
+data/
+
+# Local config (use config.example.yaml as the template).
+# Targets live in data/ (the store), so they're already ignored above.
+config.yaml

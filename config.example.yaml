@@ -1,0 +1,42 @@
+# =====================================================================
+#  lap-monitor - example configuration
+#  Copy to config.yaml and edit. The installer (install.sh) does this for you.
+# =====================================================================
+
+settings:
+  interval: 30      # Seconds to wait between scans
+  timeout: 8        # Default timeout per check (seconds)
+  history: 20       # Number of recent results kept for the sparkline / uptime %
+  parallel: true    # true = check targets concurrently (faster with many targets)
+  workers: 8        # Max threads when parallel = true (keep low to save RAM)
+  sort_down_first: true   # true = push DOWN targets to the top so issues stand out
+
+# ---------------------------------------------------------------------
+#  Targets (the sites/VPS/services to monitor) are NOT listed here.
+#  They live in the data store and are managed with the CLI:
+#    lap-monitor add http https://example.com
+#    lap-monitor add ping 1.1.1.1
+#    lap-monitor add tcp 10.0.0.5:22
+#    lap-monitor list / remove <id> / import <file.json>
+# ---------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+#  Alerting (fires only when a target CHANGES state, never spammy).
+# ---------------------------------------------------------------------
+alerts:
+  telegram:
+    enabled: false
+    bot_token: ""    # From @BotFather
+    chat_id: ""      # Target chat/group ID
+
+# ---------------------------------------------------------------------
+#  Storage (persistence) - where the data is kept.
+#    - events   : a log of state changes (UP<->DOWN) with timestamps
+#    - snapshot : last known status + recent history per target
+#  Restored on restart; the "Recent events" quadrant reads from here.
+# ---------------------------------------------------------------------
+storage:
+  enabled: true
+  backend: sqlite          # sqlite | json
+  path: "data/monitor.db"  # for json use e.g. "data/monitor.json"
+  keep_events: 200         # max number of recent events to retain
