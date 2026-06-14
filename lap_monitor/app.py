@@ -26,6 +26,7 @@ from .state import TargetState
 from .system import SystemMonitor
 from .alerts import build_alerters, notify_change
 from .storage import build_storage
+from .market import MarketData
 from .ui import build_layout
 
 # How many recent events to show in quadrant 4.
@@ -135,24 +136,24 @@ def run(config_path=None):
         console.print("[yellow]No targets yet.[/yellow] Add some with: "
                       "[bold]lap-monitor add http https://example.com[/bold]")
 
-    events = eng.storage.recent_events(EVENTS_SHOWN)
+    market = MarketData(cfg)
+    market.start()
     try:
         with Live(
-            build_layout(eng.states, eng.sysmon, events, eng.interval,
+            build_layout(eng.states, eng.sysmon, market, eng.interval,
                          eng.sort_down_first),
             console=console, screen=True, refresh_per_second=4,
         ) as live:
             while True:
-                changes = eng.scan()
-                if changes:
-                    events = eng.storage.recent_events(EVENTS_SHOWN)
+                eng.scan()              # records events to storage regardless of UI
                 for left in range(eng.interval, 0, -1):
-                    live.update(build_layout(eng.states, eng.sysmon, events,
+                    live.update(build_layout(eng.states, eng.sysmon, market,
                                              left, eng.sort_down_first))
                     time.sleep(1)
     except KeyboardInterrupt:
         pass
     finally:
+        market.stop()
         eng.storage.close()
         console.print("\n[bold]Monitor stopped. Goodbye![/bold]")
 
@@ -220,6 +221,8 @@ def dashboard(config_path=None):
 
     storage = build_storage(cfg["storage"])
     sysmon = SystemMonitor()
+    market = MarketData(cfg)
+    market.start()
     _install_signal_handlers()
 
     console = Console()
@@ -227,13 +230,13 @@ def dashboard(config_path=None):
         with Live(console=console, screen=True, refresh_per_second=4) as live:
             while True:
                 states = _viewer_states(storage, history_len)
-                events = storage.recent_events(EVENTS_SHOWN)
-                live.update(build_layout(states, sysmon, events, None,
+                live.update(build_layout(states, sysmon, market, None,
                                          sort_down_first))
                 time.sleep(VIEWER_REFRESH)
     except KeyboardInterrupt:
         pass
     finally:
+        market.stop()
         storage.close()
         console.print("\n[bold]Dashboard closed.[/bold]")
 

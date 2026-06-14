@@ -356,6 +356,86 @@ def render_attention_panel(states):
 
 
 # ---------------------------------------------------------------------
+#  Cell: Bitcoin / crypto prices (from market.MarketData)
+# ---------------------------------------------------------------------
+def _usd(v):
+    if v is None:
+        return Text("—", style="dim")
+    return Text(f"${v:,.0f}" if v >= 1000 else f"${v:,.2f}")
+
+
+def _change_text(pct):
+    if pct is None:
+        return Text("—", style="dim")
+    arrow = "▲" if pct >= 0 else "▼"
+    return Text(f"{arrow} {pct:+.2f}%", style="green" if pct >= 0 else "red")
+
+
+def render_bitcoin_panel(crypto):
+    """crypto: {ticker: {"price": float, "change": float}} or None."""
+    if not crypto:
+        body = Align.center(Text("Đang tải giá crypto…", style="dim"),
+                            vertical="middle")
+        return Panel(body, title="₿ Crypto", border_style="bright_black",
+                     box=box.ROUNDED, padding=(0, 1))
+
+    rows = list(crypto.items())
+
+    def make_table(visible):
+        table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
+                      pad_edge=False, row_styles=["", "on grey7"])
+        table.add_column("Coin", no_wrap=True, ratio=2)
+        table.add_column("Giá (USD)", justify="right", no_wrap=True, ratio=3)
+        table.add_column("24h", justify="right", no_wrap=True, ratio=2)
+        for ticker, d in visible:
+            table.add_row(Text(ticker, style="bold yellow"),
+                          _usd(d.get("price")), _change_text(d.get("change")))
+        return table
+
+    btc = crypto.get("BTC") or next(iter(crypto.values()), {})
+    chg = btc.get("change")
+    border = "green" if (chg is None or chg >= 0) else "red"
+    return Panel(_Scroller(rows, make_table), title="₿ Crypto",
+                 border_style=border, box=box.ROUNDED, padding=(0, 1))
+
+
+# ---------------------------------------------------------------------
+#  Cell: Vietnam gold prices (PNJ, from market.MarketData)
+# ---------------------------------------------------------------------
+def _gold_price(v):
+    """PNJ price is in thousand VND; show it in millions (triệu)."""
+    if v is None:
+        return Text("—", style="dim")
+    return Text(f"{v / 1000:,.2f}")
+
+
+def render_gold_panel(gold):
+    """gold: [{"name","buy","sell","delta"}] or None."""
+    if not gold:
+        body = Align.center(Text("Đang tải giá vàng…", style="dim"),
+                            vertical="middle")
+        return Panel(body, title="🥇 Vàng VN", border_style="bright_black",
+                     box=box.ROUNDED, padding=(0, 1))
+
+    def make_table(visible):
+        table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
+                      pad_edge=False, row_styles=["", "on grey7"])
+        table.add_column("Loại", no_wrap=True, ratio=3, overflow="ellipsis")
+        table.add_column("Mua", justify="right", no_wrap=True)
+        table.add_column("Bán", justify="right", no_wrap=True)
+        for g in visible:
+            sell = _gold_price(g.get("sell"))
+            d = g.get("delta")
+            if d:
+                sell.append(" ▲" if d > 0 else " ▼", style="green" if d > 0 else "red")
+            table.add_row(g.get("name", "?"), _gold_price(g.get("buy")), sell)
+        return table
+
+    return Panel(_Scroller(gold, make_table), title="🥇 Vàng VN (triệu đ)",
+                 border_style="yellow", box=box.ROUNDED, padding=(0, 1))
+
+
+# ---------------------------------------------------------------------
 #  Header + full layout
 # ---------------------------------------------------------------------
 def render_header(states, countdown):
@@ -383,15 +463,21 @@ def render_header(states, countdown):
                  border_style=overall, box=box.HEAVY, padding=0)
 
 
-def build_layout(states, sysmon, events=None, countdown=None, sort_down_first=True):
+def build_layout(states, sysmon, market=None, countdown=None, sort_down_first=True):
     """Assemble the header + 3x2 (six-cell) layout into a single renderable.
 
-    Grid (change the two split_row() calls below to rearrange cells):
-        top:    This machine | Websites      | VPS / hosts
-        bottom: Recent events | Summary      | Attention
+    Grid (change the split_row()/split_column() calls below to rearrange):
+        top:    [This machine / Summary] | Websites | VPS / hosts
+        bottom: ₿ Crypto                 | 🥇 Vàng VN | Attention
+
+    The first cell is split into two stacked sections (machine stats on top,
+    target summary below). ``market`` is a market.MarketData (or None) whose
+    cached ``crypto`` / ``gold`` snapshots feed the two bottom-left cells.
     """
     websites = [s for s in states if s.is_website()]
     vps = [s for s in states if s.is_vps()]
+    crypto = market.crypto if market else None
+    gold = market.gold if market else None
 
     root = Layout()
     root.split_column(
@@ -403,13 +489,18 @@ def build_layout(states, sysmon, events=None, countdown=None, sort_down_first=Tr
         Layout(name="bottom"),
     )
     root["top"].split_row(
-        Layout(render_system_panel(sysmon), name="q1"),
+        Layout(name="q1"),
         Layout(render_websites_panel(websites, sort_down_first), name="q2"),
         Layout(render_vps_panel(vps, sort_down_first), name="q3"),
     )
+    # Cell 1: two stacked sections - machine stats above, target summary below.
+    root["q1"].split_column(
+        Layout(render_system_panel(sysmon), name="q1a"),
+        Layout(render_summary_panel(states), name="q1b"),
+    )
     root["bottom"].split_row(
-        Layout(render_events_panel(events or []), name="q4"),
-        Layout(render_summary_panel(states), name="q5"),
+        Layout(render_bitcoin_panel(crypto), name="q4"),
+        Layout(render_gold_panel(gold), name="q5"),
         Layout(render_attention_panel(states), name="q6"),
     )
     return root

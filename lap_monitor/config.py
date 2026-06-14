@@ -90,6 +90,8 @@ def load_config(path=CONFIG_PATH):
     cfg.setdefault("settings", {})
     cfg.setdefault("alerts", {})
     cfg.setdefault("storage", {})
+    # Market panel (crypto + gold). Sub-keys get their defaults in MarketData.
+    cfg.setdefault("market", {})
 
     s = cfg["settings"]
     s.setdefault("interval", 30)

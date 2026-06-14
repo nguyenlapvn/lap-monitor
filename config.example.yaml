@@ -40,3 +40,22 @@ storage:
   backend: sqlite          # sqlite | json
   path: "data/monitor.db"  # for json use e.g. "data/monitor.json"
   keep_events: 200         # max number of recent events to retain
+
+# ---------------------------------------------------------------------
+#  Market panel - Bitcoin/crypto (CoinGecko) + Vietnam gold (PNJ).
+#  Both are free, key-less public APIs, so no secrets/.env needed here.
+#  Shown in the two bottom-left cells of the dashboard.
+# ---------------------------------------------------------------------
+market:
+  enabled: true
+  refresh: 60              # seconds between API refreshes (these are external APIs)
+  timeout: 10              # per-request timeout (seconds)
+  crypto:
+    enabled: true
+    vs_currency: usd       # quote currency (CoinGecko)
+    coins: [bitcoin, ethereum]   # CoinGecko ids; add e.g. solana, binancecoin
+  gold:
+    enabled: true
+    # PNJ product codes (masp) to show; empty list = show all.
+    # Examples: SJC (vàng miếng SJC), N24K (nhẫn trơn PNJ 999.9), PNJ, 24K
+    products: [SJC, N24K, PNJ, "24K"]
