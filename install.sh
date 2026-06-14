@@ -63,6 +63,10 @@ cd "${APP_DIR}" && exec ${PYTHON} -m lap_monitor "\$@"
 EOF
 $SUDO chmod +x "$BIN"
 
+# Short alias so you can type 'lapm' instead of 'lap-monitor'.
+$SUDO ln -sf "$BIN" /usr/local/bin/lapm
+echo "==> Installed short alias: lapm -> lap-monitor"
+
 # --- 4) systemd service (auto-start on boot, auto-restart on crash) ---
 if command -v systemctl >/dev/null 2>&1; then
   UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
@@ -99,11 +103,11 @@ else
 fi
 
 echo ""
-echo "==> Done. Next steps (the 'lap-monitor' command works anywhere now):"
-echo "      lap-monitor add http https://example.com"
-echo "      lap-monitor add ping 1.1.1.1"
-echo "      lap-monitor add tcp 10.0.0.5:22"
-echo "      lap-monitor list"
+echo "==> Done. Next steps ('lap-monitor' or the short alias 'lapm' work anywhere now):"
+echo "      lapm add http https://example.com"
+echo "      lapm add ping 1.1.1.1"
+echo "      lapm add tcp 10.0.0.5:22"
+echo "      lapm list"
 echo "      $SUDO systemctl restart lap-monitor    # apply target changes"
-echo "      lap-monitor dashboard                  # watch the live screen"
+echo "      lapm dashboard                         # watch the live screen"
 ( cd "$APP_DIR" && "$PYTHON" -m lap_monitor --version )

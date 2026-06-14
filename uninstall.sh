@@ -33,10 +33,14 @@ else
   echo "!! systemctl not found - nothing to remove."
 fi
 
-# Remove the CLI launcher.
+# Remove the CLI launcher and its short alias.
 if [ -f /usr/local/bin/lap-monitor ]; then
   $SUDO rm -f /usr/local/bin/lap-monitor
   echo "==> Removed /usr/local/bin/lap-monitor"
+fi
+if [ -L /usr/local/bin/lapm ] || [ -f /usr/local/bin/lapm ]; then
+  $SUDO rm -f /usr/local/bin/lapm
+  echo "==> Removed /usr/local/bin/lapm"
 fi
 
 echo "==> Done. Your config.yaml and data/ (targets, history) were kept."
