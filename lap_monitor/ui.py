@@ -11,6 +11,7 @@ Layout:
     +---------------------------+-------------------------+
 """
 
+import time
 from datetime import datetime
 
 from rich.table import Table
@@ -26,6 +27,11 @@ from . import __version__
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
 TYPE_ICON = {"http": "🌐", "ping": "📡", "tcp": "🔌"}
 STATE_RANK = {"DOWN": 0, "UNKNOWN": 1, "UP": 2}
+
+# Auto-scroll: when a target list is taller than its cell, the visible window
+# advances one row every SCROLL_SECONDS_PER_ROW seconds (wrapping around),
+# driven by the Live refresh thread. DOWN targets are pinned so they stay put.
+SCROLL_SECONDS_PER_ROW = 2.0
 
 
 # ---------------------------------------------------------------------
@@ -147,37 +153,86 @@ def render_system_panel(sysmon):
 # ---------------------------------------------------------------------
 #  Quadrants 2 & 3: target tables
 # ---------------------------------------------------------------------
-def _targets_table(states, sort_down_first, show_type=False):
-    table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
-                  pad_edge=False, row_styles=["", "on grey7"])
-    table.add_column("Name", no_wrap=True, ratio=3, overflow="ellipsis")
-    if show_type:
-        table.add_column("Type", justify="center", no_wrap=True)
-    table.add_column("Status", justify="center", no_wrap=True)
-    table.add_column("ms", justify="right", no_wrap=True)
-    table.add_column("Up%", justify="right", no_wrap=True)
-    table.add_column("History", no_wrap=True, ratio=2)
+class _Scroller:
+    """Renderable that fits a list of target rows into whatever cell height it
+    is given. If the list fits, the whole table is shown. If not, a window of
+    rows scrolls upward over time (wrapping), with the first ``pin`` rows kept
+    fixed at the top so currently-DOWN targets never scroll out of view.
 
+    The scroll position is derived from the wall clock, so the animation is
+    driven by Live's own refresh thread - no frame counter has to be threaded
+    through the render loop.
+    """
+
+    # A SIMPLE_HEAD table costs 4 lines around its data rows: a leading blank,
+    # the column header, the rule beneath it, and a trailing blank.
+    _HEADER_LINES = 4
+
+    def __init__(self, rows, make_table, pin=0):
+        self.rows = rows
+        self.make_table = make_table
+        self.pin = pin
+
+    def __rich_console__(self, console, options):
+        height = options.height or options.max_height
+        n = len(self.rows)
+        capacity = max(1, height - self._HEADER_LINES)
+
+        if n <= capacity:
+            yield self.make_table(self.rows)
+            return
+
+        usable = max(1, capacity - 1)          # leave one line for the indicator
+        pins = self.rows[:self.pin]
+        scroll = self.rows[self.pin:]
+        if len(pins) >= usable:                # too many pinned rows to fit: scroll all
+            pins, scroll = [], self.rows
+
+        slots = usable - len(pins)
+        start = int(time.monotonic() / SCROLL_SECONDS_PER_ROW) % len(scroll)
+        window = [scroll[(start + i) % len(scroll)] for i in range(min(slots, len(scroll)))]
+        visible = pins + window
+
+        yield self.make_table(visible)
+        hidden = n - len(visible)
+        yield Text(f"  ↕ auto-scrolling · {hidden} more of {n}",
+                   style="dim", overflow="ellipsis", no_wrap=True)
+
+
+def _targets_table(states, sort_down_first, show_type=False):
     rows = states
     if sort_down_first:
         rows = sorted(states, key=lambda s: STATE_RANK.get(s.state, 1))
 
-    for s in rows:
-        cells = [s.name]
-        if show_type:
-            cells.append(f"{TYPE_ICON.get(s.type, '')} {s.type}")
-        cells += [
-            status_text(s.state),
-            latency_text(s.last_ms),
-            uptime_text(s.uptime_pct()),
-            sparkline(s.history),
-        ]
-        table.add_row(*cells)
-
     if not rows:
-        msg = Align.center(Text("(no targets)", style="dim"), vertical="middle")
-        return msg
-    return table
+        return Align.center(Text("(no targets)", style="dim"), vertical="middle")
+
+    def make_table(visible):
+        table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
+                      pad_edge=False, row_styles=["", "on grey7"])
+        table.add_column("Name", no_wrap=True, ratio=3, overflow="ellipsis")
+        if show_type:
+            table.add_column("Type", justify="center", no_wrap=True)
+        table.add_column("Status", justify="center", no_wrap=True)
+        table.add_column("ms", justify="right", no_wrap=True)
+        table.add_column("Up%", justify="right", no_wrap=True)
+        table.add_column("History", no_wrap=True, ratio=2)
+        for s in visible:
+            cells = [s.name]
+            if show_type:
+                cells.append(f"{TYPE_ICON.get(s.type, '')} {s.type}")
+            cells += [
+                status_text(s.state),
+                latency_text(s.last_ms),
+                uptime_text(s.uptime_pct()),
+                sparkline(s.history),
+            ]
+            table.add_row(*cells)
+        return table
+
+    # Pin the DOWN targets (they sort first) so they never scroll off-screen.
+    pin = sum(1 for s in rows if s.state == "DOWN") if sort_down_first else 0
+    return _Scroller(rows, make_table, pin=pin)
 
 
 def _panel_title(label, states):
