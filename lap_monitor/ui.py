@@ -361,20 +361,30 @@ def render_attention_panel(states):
 def _usd(v):
     if v is None:
         return Text("—", style="dim")
-    return Text(f"${v:,.0f}" if v >= 1000 else f"${v:,.2f}")
+    if v >= 1000:
+        s = f"${v:,.0f}"
+    elif v >= 1:
+        s = f"${v:,.2f}"
+    elif v >= 0.01:
+        s = f"${v:.4f}"
+    else:                                   # tiny prices (e.g. SHIB)
+        s = f"${v:.8f}".rstrip("0")
+    return Text(s)
 
 
-def _change_text(pct):
+def _chg(pct):
+    """Compact, colored price-change cell. Arrow shows direction, so the number
+    is unsigned to save width: ▲2.8% / ▼0.4%."""
     if pct is None:
         return Text("—", style="dim")
     arrow = "▲" if pct >= 0 else "▼"
-    return Text(f"{arrow} {pct:+.2f}%", style="green" if pct >= 0 else "red")
+    return Text(f"{arrow}{abs(pct):.1f}%", style="green" if pct >= 0 else "red")
 
 
 def render_bitcoin_panel(crypto):
-    """crypto: {ticker: {"price": float, "change": float}} or None."""
+    """crypto: {ticker: {"price","h1","h24","d7"}} or None."""
     if not crypto:
-        body = Align.center(Text("Đang tải giá crypto…", style="dim"),
+        body = Align.center(Text("Loading crypto…", style="dim"),
                             vertical="middle")
         return Panel(body, title="₿ Crypto", border_style="bright_black",
                      box=box.ROUNDED, padding=(0, 1))
@@ -384,16 +394,18 @@ def render_bitcoin_panel(crypto):
     def make_table(visible):
         table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
                       pad_edge=False, row_styles=["", "on grey7"])
-        table.add_column("Coin", no_wrap=True, ratio=2)
-        table.add_column("Giá (USD)", justify="right", no_wrap=True, ratio=3)
-        table.add_column("24h", justify="right", no_wrap=True, ratio=2)
+        table.add_column("Coin", no_wrap=True, ratio=3)
+        table.add_column("Price", justify="right", no_wrap=True, ratio=5)
+        table.add_column("1h", justify="right", no_wrap=True, ratio=3)
+        table.add_column("24h", justify="right", no_wrap=True, ratio=3)
+        table.add_column("7d", justify="right", no_wrap=True, ratio=3)
         for ticker, d in visible:
-            table.add_row(Text(ticker, style="bold yellow"),
-                          _usd(d.get("price")), _change_text(d.get("change")))
+            table.add_row(Text(ticker, style="bold yellow"), _usd(d.get("price")),
+                          _chg(d.get("h1")), _chg(d.get("h24")), _chg(d.get("d7")))
         return table
 
     btc = crypto.get("BTC") or next(iter(crypto.values()), {})
-    chg = btc.get("change")
+    chg = btc.get("h24")
     border = "green" if (chg is None or chg >= 0) else "red"
     return Panel(_Scroller(rows, make_table), title="₿ Crypto",
                  border_style=border, box=box.ROUNDED, padding=(0, 1))
@@ -412,17 +424,17 @@ def _gold_price(v):
 def render_gold_panel(gold):
     """gold: [{"name","buy","sell","delta"}] or None."""
     if not gold:
-        body = Align.center(Text("Đang tải giá vàng…", style="dim"),
+        body = Align.center(Text("Loading gold…", style="dim"),
                             vertical="middle")
-        return Panel(body, title="🥇 Vàng VN", border_style="bright_black",
+        return Panel(body, title="🥇 Gold VN", border_style="bright_black",
                      box=box.ROUNDED, padding=(0, 1))
 
     def make_table(visible):
         table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
                       pad_edge=False, row_styles=["", "on grey7"])
-        table.add_column("Loại", no_wrap=True, ratio=3, overflow="ellipsis")
-        table.add_column("Mua", justify="right", no_wrap=True)
-        table.add_column("Bán", justify="right", no_wrap=True)
+        table.add_column("Type", no_wrap=True, ratio=3, overflow="ellipsis")
+        table.add_column("Buy", justify="right", no_wrap=True)
+        table.add_column("Sell", justify="right", no_wrap=True)
         for g in visible:
             sell = _gold_price(g.get("sell"))
             d = g.get("delta")
@@ -431,7 +443,7 @@ def render_gold_panel(gold):
             table.add_row(g.get("name", "?"), _gold_price(g.get("buy")), sell)
         return table
 
-    return Panel(_Scroller(gold, make_table), title="🥇 Vàng VN (triệu đ)",
+    return Panel(_Scroller(gold, make_table), title="🥇 Gold VN (trieu d)",
                  border_style="yellow", box=box.ROUNDED, padding=(0, 1))
 
 

@@ -11,10 +11,12 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 ## [3.2.0] - 2026-06-15
 ### Added
 - **Market cells** (`market.py`): bottom-left now shows **₿ Crypto** prices with
-  24h change (CoinGecko) and **🥇 Vietnam gold** buy/sell with up/down arrows
-  (PNJ). Both are free, key-less public APIs - no secrets/`.env` needed. Fetched
-  on a background thread every `market.refresh` seconds (default 60, min 15) and
-  cached, so the API isn't hit on every repaint.
+  **1h / 24h / 7d** change (CoinGecko `/coins/markets`) and **🥇 Vietnam gold**
+  buy/sell with up/down arrows (PNJ). Both are free, key-less public APIs - no
+  secrets/`.env` needed. Fetched on a background thread every `market.refresh`
+  seconds (default 60, min 15) and cached, so the API isn't hit on every repaint.
+- Column headers are English; gold product names are shown in **accent-free
+  Vietnamese** (e.g. "Vang mieng SJC 999.9").
 - Crypto list ships with **22 popular coins** (BTC, ETH, BNB, SOL, XRP, ADA,
   DOGE, TRX, AVAX, LINK, DOT, LTC, SHIB, UNI, ATOM, XLM, XMR, BCH, NEAR, APT,
   ARB, OP); edit `market.crypto.coins` to taste.

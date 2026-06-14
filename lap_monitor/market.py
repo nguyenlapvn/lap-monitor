@@ -16,10 +16,11 @@ value is kept (the panel shows it as slightly stale rather than crashing).
 import json
 import ssl
 import threading
+import unicodedata
 import urllib.request
 import urllib.error
 
-_CG_URL = "https://api.coingecko.com/api/v3/simple/price"
+_CG_URL = "https://api.coingecko.com/api/v3/coins/markets"
 _PNJ_URL = "https://edge-api.pnj.io/ecom-frontend/v1/get-gold-price?zone=00"
 
 # CoinGecko ids -> short ticker shown in the table.
@@ -110,19 +111,23 @@ class MarketData:
     # -- fetchers ------------------------------------------------------
     def _fetch_crypto(self):
         ids = ",".join(self.coins)
-        url = f"{_CG_URL}?ids={ids}&vs_currencies={self.vs}&include_24hr_change=true"
+        url = (f"{_CG_URL}?vs_currency={self.vs}&ids={ids}"
+               f"&price_change_percentage=1h,24h,7d&per_page=250&page=1")
         data = _get_json(url, self.timeout)
-        if not isinstance(data, dict):
+        if not isinstance(data, list):
             return None
+        by_id = {d.get("id"): d for d in data if isinstance(d, dict)}
         out = {}
-        for cid in self.coins:
-            row = data.get(cid)
-            if not isinstance(row, dict):
+        for cid in self.coins:                      # preserve the config order
+            d = by_id.get(cid)
+            if not d:
                 continue
-            ticker = _SYMBOLS.get(cid, cid[:4].upper())
+            ticker = (d.get("symbol") or "").upper() or _SYMBOLS.get(cid, cid[:4].upper())
             out[ticker] = {
-                "price": row.get(self.vs),
-                "change": row.get(f"{self.vs}_24h_change"),
+                "price": d.get("current_price"),
+                "h1": d.get("price_change_percentage_1h_in_currency"),
+                "h24": d.get("price_change_percentage_24h_in_currency"),
+                "d7": d.get("price_change_percentage_7d_in_currency"),
             }
         return out or None
 
@@ -146,7 +151,7 @@ class MarketData:
                 self._prev_gold[masp] = sell
             out.append({
                 "code": masp,
-                "name": str(it.get("tensp", masp)),
+                "name": _no_accent(it.get("tensp", masp)),
                 "buy": buy,
                 "sell": sell,
                 "delta": delta,
@@ -162,3 +167,12 @@ def _to_num(v):
         return float(v)
     except (TypeError, ValueError):
         return None
+
+
+def _no_accent(s):
+    """Strip Vietnamese diacritics so names render as plain ASCII-ish text
+    (e.g. 'Vàng miếng SJC' -> 'Vang mieng SJC'). 'đ/Đ' don't decompose under
+    NFD, so handle them explicitly."""
+    s = str(s).replace("đ", "d").replace("Đ", "D")
+    nfd = unicodedata.normalize("NFD", s)
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn")
