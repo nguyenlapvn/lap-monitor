@@ -8,6 +8,16 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 (`__version__`) and is shown in the dashboard header and via
 `python3 -m lap_monitor --version`.
 
+## [3.1.0] - 2026-06-14
+### Changed
+- Dashboard is now a **6-cell grid** (3 top, 3 bottom) instead of 4 quadrants.
+  Top: This machine | Websites | VPS/hosts. Bottom: Recent events | Summary |
+  Attention. Edit the two `split_row()` calls in `ui.build_layout()` to rearrange.
+
+### Added
+- **Summary** cell: total/UP/DOWN, average uptime and latency, counts by type.
+- **Attention** cell: lists every target currently DOWN (or "All targets UP").
+
 ## [3.0.0] - 2026-06-14
 ### Changed (breaking)
 - **Targets now live in the data store, not a file.** Removed `targets.json` /
@@ -87,6 +97,7 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 - Telegram alerts on state change (opt-in via config).
 - Optional concurrent checks; `config.yaml` configuration.
 
+[3.1.0]: #310---2026-06-14
 [3.0.0]: #300---2026-06-14
 [2.2.0]: #220---2026-06-14
 [2.1.0]: #210---2026-06-14

@@ -2,24 +2,26 @@
 
 A terminal (TUI) dashboard that monitors the **UP/DOWN** status of websites, VPS, and services. Lightweight, suited for low-spec devices (target < 50MB RAM).
 
-The screen is split into **4 quadrants**:
+The screen is split into **6 cells** (3 top, 3 bottom):
 
 ```
-+-----------------------------------------------------+
-|  header: overview + clock + countdown               |
-+---------------------------+-------------------------+
-|  Q1  This machine         |  Q2  Websites (http)    |
-+---------------------------+-------------------------+
-|  Q3  VPS / hosts          |  Q4  Recent events      |
-|      (ping + tcp)         |      (from storage)     |
-+---------------------------+-------------------------+
++-------------------------------------------------------------------+
+|  header: overview + clock + countdown                             |
++------------------+------------------------+----------------------+
+|  This machine    |  Websites (http)       |  VPS / hosts         |
+|                  |                        |  (ping + tcp)        |
++------------------+------------------------+----------------------+
+|  Recent events   |  Summary               |  Attention           |
+|  (from storage)  |  (counts, avg uptime)  |  (targets DOWN now)  |
++------------------+------------------------+----------------------+
 ```
 
 ## Features
 - Checks **HTTP/HTTPS**, **Ping (ICMP)**, and **TCP port**.
-- **Q1 — This machine:** live CPU / RAM / disk / load / uptime of the host (read from `/proc`, no extra deps).
-- **Q2 / Q3 — Targets:** color (green = UP, red = DOWN), **type icons**, response time (ms) colored by latency, **uptime %**, and a **history sparkline**. DOWN targets float to the top.
-- **Q4 — Recent events:** a log of state changes read from the data store.
+- **This machine:** live CPU / RAM / disk / load / uptime of the host (read from `/proc`, no extra deps).
+- **Websites / VPS:** color (green = UP, red = DOWN), **type icons**, response time (ms) colored by latency, **uptime %**, and a **history sparkline**. DOWN targets float to the top.
+- **Recent events:** a log of state changes read from the data store.
+- **Summary** (counts, avg uptime/latency) and **Attention** (everything currently DOWN at a glance).
 - **Targets managed via CLI** (`lap-monitor add|list|remove|import`) — stored in the data store, no file to edit.
 - **Persistence:** targets + events + last-known state saved to **SQLite or a JSON file** (configurable); state is restored on restart.
 - **Telegram** alerts when a target **changes state** (no spam). Easy to add more channels.

@@ -14,4 +14,4 @@ Modules:
 """
 
 __app_name__ = "lap-monitor"
-__version__ = "3.0.0"
+__version__ = "3.1.0"

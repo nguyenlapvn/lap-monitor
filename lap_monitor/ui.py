@@ -239,6 +239,68 @@ def render_events_panel(events):
 
 
 # ---------------------------------------------------------------------
+#  Cell: summary / overview
+# ---------------------------------------------------------------------
+def render_summary_panel(states):
+    grid = Table.grid(padding=(0, 1), expand=True)
+    grid.add_column(justify="left", no_wrap=True, ratio=2)
+    grid.add_column(justify="right", ratio=1)
+
+    def row(label, value):
+        grid.add_row(Text(label, style="bold cyan"), value)
+
+    total = len(states)
+    up = sum(1 for s in states if s.state == "UP")
+    down = sum(1 for s in states if s.state == "DOWN")
+    unknown = total - up - down
+
+    ups = [s.uptime_pct() for s in states if s.uptime_pct() is not None]
+    avg_uptime = sum(ups) / len(ups) if ups else None
+    lat = [s.last_ms for s in states if s.state == "UP" and s.last_ms is not None]
+    avg_lat = sum(lat) / len(lat) if lat else None
+
+    n_http = sum(1 for s in states if s.type == "http")
+    n_ping = sum(1 for s in states if s.type == "ping")
+    n_tcp = sum(1 for s in states if s.type == "tcp")
+
+    row("Targets", Text(str(total)))
+    row("UP", Text(str(up), style="green"))
+    row("DOWN", Text(str(down), style="red" if down else "dim"))
+    if unknown:
+        row("Unknown", Text(str(unknown), style="dim"))
+    row("Avg uptime", uptime_text(avg_uptime))
+    row("Avg latency", latency_text(avg_lat))
+    row("By type", Text(f"{n_http}🌐 {n_ping}📡 {n_tcp}🔌", style="dim"))
+
+    return Panel(grid, title="📊 Summary", border_style="blue",
+                 box=box.ROUNDED, padding=(0, 1))
+
+
+# ---------------------------------------------------------------------
+#  Cell: attention (targets currently DOWN)
+# ---------------------------------------------------------------------
+def render_attention_panel(states):
+    down = [s for s in states if s.state == "DOWN"]
+    if not down:
+        body = Align.center(
+            Text("✓ All targets UP", justify="center", style="bold green"),
+            vertical="middle",
+        )
+        return Panel(body, title="⚠ Attention", border_style="green",
+                     box=box.ROUNDED, padding=(0, 1))
+
+    table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
+                  pad_edge=False, row_styles=["", "on grey7"])
+    table.add_column("Target", no_wrap=True, ratio=2, overflow="ellipsis")
+    table.add_column("Detail", overflow="ellipsis", ratio=3)
+    for s in down:
+        table.add_row(Text(s.name, style="bold red"), s.detail)
+
+    return Panel(table, title=f"⚠ Attention  🔴{len(down)}",
+                 border_style="red", box=box.ROUNDED, padding=(0, 1))
+
+
+# ---------------------------------------------------------------------
 #  Header + full layout
 # ---------------------------------------------------------------------
 def render_header(states, countdown):
@@ -267,7 +329,12 @@ def render_header(states, countdown):
 
 
 def build_layout(states, sysmon, events=None, countdown=None, sort_down_first=True):
-    """Assemble the header + 2x2 quadrant layout into a single renderable."""
+    """Assemble the header + 3x2 (six-cell) layout into a single renderable.
+
+    Grid (change the two split_row() calls below to rearrange cells):
+        top:    This machine | Websites      | VPS / hosts
+        bottom: Recent events | Summary      | Attention
+    """
     websites = [s for s in states if s.is_website()]
     vps = [s for s in states if s.is_vps()]
 
@@ -283,9 +350,11 @@ def build_layout(states, sysmon, events=None, countdown=None, sort_down_first=Tr
     root["top"].split_row(
         Layout(render_system_panel(sysmon), name="q1"),
         Layout(render_websites_panel(websites, sort_down_first), name="q2"),
+        Layout(render_vps_panel(vps, sort_down_first), name="q3"),
     )
     root["bottom"].split_row(
-        Layout(render_vps_panel(vps, sort_down_first), name="q3"),
         Layout(render_events_panel(events or []), name="q4"),
+        Layout(render_summary_panel(states), name="q5"),
+        Layout(render_attention_panel(states), name="q6"),
     )
     return root
