@@ -100,5 +100,6 @@ def load_config(path=CONFIG_PATH):
     s.setdefault("parallel", True)
     s.setdefault("workers", 8)
     s.setdefault("sort_down_first", True)
+    s.setdefault("emoji", "auto")
 
     return cfg

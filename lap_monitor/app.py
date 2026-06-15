@@ -11,6 +11,7 @@ single standalone 'run'. Don't run 'serve' and 'run' at the same time - they
 would both scan and write to the same store.
 """
 
+import os
 import time
 import signal
 import threading
@@ -27,7 +28,7 @@ from .system import SystemMonitor
 from .alerts import build_alerters, notify_change
 from .storage import build_storage
 from .market import MarketData
-from .ui import build_layout
+from .ui import build_layout, set_emoji
 
 # How many recent events to show in quadrant 4.
 EVENTS_SHOWN = 15
@@ -122,6 +123,18 @@ def _install_signal_handlers():
         pass  # not available (e.g. non-main thread / Windows)
 
 
+def _configure_emoji(cfg):
+    """Decide whether to render emoji icons. config 'settings.emoji' may be
+    true/false to force it; "auto" (default) turns emoji OFF on the Linux
+    framebuffer console (TERM=linux, can't draw emoji) and ON elsewhere
+    (e.g. an SSH session from a real terminal)."""
+    v = cfg.get("settings", {}).get("emoji", "auto")
+    if isinstance(v, bool):
+        set_emoji(v)
+    else:
+        set_emoji(os.environ.get("TERM") != "linux")
+
+
 # =====================================================================
 #  Mode: run (all-in-one TUI)
 # =====================================================================
@@ -129,6 +142,7 @@ def run(config_path=None):
     cfg = load_config(config_path) if config_path else load_config()
     eng = Engine(cfg)
     _install_signal_handlers()
+    _configure_emoji(cfg)
 
     console = Console()
     console.print("[dim]Starting lap-monitor... (Ctrl+C to quit)[/dim]")
@@ -224,6 +238,7 @@ def dashboard(config_path=None):
     market = MarketData(cfg)
     market.start()
     _install_signal_handlers()
+    _configure_emoji(cfg)
 
     console = Console()
     try:

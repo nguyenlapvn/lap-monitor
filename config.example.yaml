@@ -10,6 +10,8 @@ settings:
   parallel: true    # true = check targets concurrently (faster with many targets)
   workers: 8        # Max threads when parallel = true (keep low to save RAM)
   sort_down_first: true   # true = push DOWN targets to the top so issues stand out
+  emoji: auto       # auto|true|false. auto = OFF on the Linux console (TERM=linux,
+                    # can't draw emoji -> tofu + misaligned columns), ON over SSH.
 
 # ---------------------------------------------------------------------
 #  Targets (the sites/VPS/services to monitor) are NOT listed here.

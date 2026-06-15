@@ -17,6 +17,10 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
   seconds (default 60, min 15) and cached, so the API isn't hit on every repaint.
 - Column headers are English; gold product names are shown in **accent-free
   Vietnamese** (e.g. "Vang mieng SJC 999.9").
+- **Emoji toggle** (`settings.emoji: auto|true|false`). `auto` turns emoji off on
+  the Linux framebuffer console (`TERM=linux`, which renders them as tofu and
+  misaligns columns like "By type") and keeps them on over SSH. ASCII fallbacks
+  are used when off.
 - Crypto list ships with **22 popular coins** (BTC, ETH, BNB, SOL, XRP, ADA,
   DOGE, TRX, AVAX, LINK, DOT, LTC, SHIB, UNI, ATOM, XLM, XMR, BCH, NEAR, APT,
   ARB, OP); edit `market.crypto.coins` to taste.

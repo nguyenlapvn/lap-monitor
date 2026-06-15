@@ -28,6 +28,23 @@ SPARK_CHARS = "▁▂▃▄▅▆▇█"
 TYPE_ICON = {"http": "🌐", "ping": "📡", "tcp": "🔌"}
 STATE_RANK = {"DOWN": 0, "UNKNOWN": 1, "UP": 2}
 
+# Emoji rendering. The Linux framebuffer console (TERM=linux) draws emoji as
+# tofu boxes and miscounts their width, which both looks bad and breaks column
+# alignment (e.g. the "By type" row). So emoji can be turned off for plain
+# ASCII. set_emoji() is called once at startup; over SSH to a real terminal
+# emoji stay on and render fine.
+USE_EMOJI = True
+
+
+def set_emoji(enabled):
+    global USE_EMOJI
+    USE_EMOJI = bool(enabled)
+
+
+def ic(emoji, ascii_=""):
+    """Return the emoji glyph, or its ASCII fallback on a no-emoji console."""
+    return emoji if USE_EMOJI else ascii_
+
 # Auto-scroll: when a target list is taller than its cell, the visible window
 # advances one row every SCROLL_SECONDS_PER_ROW seconds (wrapping around),
 # driven by the Live refresh thread. DOWN targets are pinned so they stay put.
@@ -146,7 +163,7 @@ def render_system_panel(sysmon):
     row("Load", load_val)
     row("Uptime", Text(_fmt_uptime(sysmon.uptime())))
 
-    return Panel(grid, title="🖥  This machine", border_style="cyan",
+    return Panel(grid, title=ic("🖥  ") + "This machine", border_style="cyan",
                  box=box.ROUNDED, padding=(0, 1))
 
 
@@ -195,7 +212,7 @@ class _Scroller:
 
         yield self.make_table(visible)
         hidden = n - len(visible)
-        yield Text(f"  ↕ auto-scrolling · {hidden} more of {n}",
+        yield Text(f"  {ic('↕ ')}auto-scrolling · {hidden} more of {n}",
                    style="dim", overflow="ellipsis", no_wrap=True)
 
 
@@ -220,7 +237,7 @@ def _targets_table(states, sort_down_first, show_type=False):
         for s in visible:
             cells = [s.name]
             if show_type:
-                cells.append(f"{TYPE_ICON.get(s.type, '')} {s.type}")
+                cells.append(f"{ic(TYPE_ICON.get(s.type, ''))} {s.type}".strip())
             cells += [
                 status_text(s.state),
                 latency_text(s.last_ms),
@@ -240,9 +257,9 @@ def _panel_title(label, states):
     down = sum(1 for s in states if s.state == "DOWN")
     t = Text()
     t.append(f"{label}  ", style="bold")
-    t.append(f"✅{up}", style="green")
+    t.append(f"{ic('✅', 'UP ')}{up}", style="green")
     t.append(" ")
-    t.append(f"🔴{down}", style="red" if down else "dim")
+    t.append(f"{ic('🔴', 'DN ')}{down}", style="red" if down else "dim")
     t.append(f" /{len(states)}", style="dim")
     return t
 
@@ -250,14 +267,14 @@ def _panel_title(label, states):
 def render_websites_panel(states, sort_down_first):
     body = _targets_table(states, sort_down_first, show_type=False)
     border = "red" if any(s.state == "DOWN" for s in states) else "green"
-    return Panel(body, title=_panel_title("🌐 Websites", states),
+    return Panel(body, title=_panel_title(ic("🌐 ") + "Websites", states),
                  border_style=border, box=box.ROUNDED, padding=(0, 1))
 
 
 def render_vps_panel(states, sort_down_first):
     body = _targets_table(states, sort_down_first, show_type=True)
     border = "red" if any(s.state == "DOWN" for s in states) else "green"
-    return Panel(body, title=_panel_title("📡 VPS / hosts", states),
+    return Panel(body, title=_panel_title(ic("📡 ") + "VPS / hosts", states),
                  border_style=border, box=box.ROUNDED, padding=(0, 1))
 
 
@@ -271,7 +288,7 @@ def render_events_panel(events):
                  justify="center", style="dim"),
             vertical="middle",
         )
-        return Panel(body, title="📜 Recent events", border_style="bright_black",
+        return Panel(body, title=ic("📜 ") + "Recent events", border_style="bright_black",
                      box=box.ROUNDED, padding=(0, 1))
 
     table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
@@ -289,7 +306,7 @@ def render_events_panel(events):
         change.append(str(new), style="bold green" if new == "UP" else "bold red")
         table.add_row(ts, ev.get("name", "?"), change)
 
-    return Panel(table, title="📜 Recent events", border_style="bright_black",
+    return Panel(table, title=ic("📜 ") + "Recent events", border_style="bright_black",
                  box=box.ROUNDED, padding=(0, 1))
 
 
@@ -325,9 +342,13 @@ def render_summary_panel(states):
         row("Unknown", Text(str(unknown), style="dim"))
     row("Avg uptime", uptime_text(avg_uptime))
     row("Avg latency", latency_text(avg_lat))
-    row("By type", Text(f"{n_http}🌐 {n_ping}📡 {n_tcp}🔌", style="dim"))
+    if USE_EMOJI:
+        by_type = f"{n_http}🌐 {n_ping}📡 {n_tcp}🔌"
+    else:
+        by_type = f"H:{n_http} P:{n_ping} T:{n_tcp}"
+    row("By type", Text(by_type, style="dim"))
 
-    return Panel(grid, title="📊 Summary", border_style="blue",
+    return Panel(grid, title=ic("📊 ") + "Summary", border_style="blue",
                  box=box.ROUNDED, padding=(0, 1))
 
 
@@ -341,7 +362,7 @@ def render_attention_panel(states):
             Text("✓ All targets UP", justify="center", style="bold green"),
             vertical="middle",
         )
-        return Panel(body, title="⚠ Attention", border_style="green",
+        return Panel(body, title=ic("⚠ ", "! ") + "Attention", border_style="green",
                      box=box.ROUNDED, padding=(0, 1))
 
     table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
@@ -351,7 +372,7 @@ def render_attention_panel(states):
     for s in down:
         table.add_row(Text(s.name, style="bold red"), s.detail)
 
-    return Panel(table, title=f"⚠ Attention  🔴{len(down)}",
+    return Panel(table, title=ic("⚠ ", "! ") + f"Attention  {ic('🔴', 'DN ')}{len(down)}",
                  border_style="red", box=box.ROUNDED, padding=(0, 1))
 
 
@@ -386,7 +407,7 @@ def render_bitcoin_panel(crypto):
     if not crypto:
         body = Align.center(Text("Loading crypto…", style="dim"),
                             vertical="middle")
-        return Panel(body, title="₿ Crypto", border_style="bright_black",
+        return Panel(body, title=ic("₿ ") + "Crypto", border_style="bright_black",
                      box=box.ROUNDED, padding=(0, 1))
 
     rows = list(crypto.items())
@@ -407,7 +428,7 @@ def render_bitcoin_panel(crypto):
     btc = crypto.get("BTC") or next(iter(crypto.values()), {})
     chg = btc.get("h24")
     border = "green" if (chg is None or chg >= 0) else "red"
-    return Panel(_Scroller(rows, make_table), title="₿ Crypto",
+    return Panel(_Scroller(rows, make_table), title=ic("₿ ") + "Crypto",
                  border_style=border, box=box.ROUNDED, padding=(0, 1))
 
 
@@ -426,7 +447,7 @@ def render_gold_panel(gold):
     if not gold:
         body = Align.center(Text("Loading gold…", style="dim"),
                             vertical="middle")
-        return Panel(body, title="🥇 Gold VN", border_style="bright_black",
+        return Panel(body, title=ic("🥇 ") + "Gold VN", border_style="bright_black",
                      box=box.ROUNDED, padding=(0, 1))
 
     def make_table(visible):
@@ -443,7 +464,7 @@ def render_gold_panel(gold):
             table.add_row(g.get("name", "?"), _gold_price(g.get("buy")), sell)
         return table
 
-    return Panel(_Scroller(gold, make_table), title="🥇 Gold VN (trieu d)",
+    return Panel(_Scroller(gold, make_table), title=ic("🥇 ") + "Gold VN (trieu d)",
                  border_style="yellow", box=box.ROUNDED, padding=(0, 1))
 
 
@@ -458,17 +479,17 @@ def render_header(states, countdown):
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     t = Text()
-    t.append(" 🖥  Lap Monitor ", style="bold white on blue")
+    t.append(f" {ic('🖥  ')}Lap Monitor ", style="bold white on blue")
     t.append(f" v{__version__}", style="dim")
     t.append("   ")
-    t.append(f"✅ {up} UP", style="bold green")
+    t.append(f"{ic('✅ ')}{up} UP", style="bold green")
     t.append("   ")
-    t.append(f"🔴 {down} DOWN", style="bold red" if down else "dim")
+    t.append(f"{ic('🔴 ')}{down} DOWN", style="bold red" if down else "dim")
     t.append(f"  / {total} targets", style="dim")
     t.append("      ")
-    t.append(f"🕐 {now}", style="cyan")
+    t.append(f"{ic('🕐 ')}{now}", style="cyan")
     if countdown is not None:
-        t.append(f"   ⏳ next scan in {countdown:>2}s", style="dim")
+        t.append(f"   {ic('⏳ ')}next scan in {countdown:>2}s", style="dim")
     t.append("   ·  Ctrl+C to quit", style="dim")
 
     return Panel(Align.center(t, vertical="middle"),
