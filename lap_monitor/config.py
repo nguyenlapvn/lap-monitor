@@ -95,7 +95,9 @@ def load_config(path=CONFIG_PATH):
 
     s = cfg["settings"]
     s.setdefault("interval", 30)
-    s.setdefault("timeout", 8)
+    s.setdefault("timeout", 15)
+    s.setdefault("retries", 2)
+    s.setdefault("retry_delay", 3)
     s.setdefault("history", 20)
     s.setdefault("parallel", True)
     s.setdefault("workers", 8)

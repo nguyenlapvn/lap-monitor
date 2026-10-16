@@ -165,7 +165,14 @@ lap-monitor import mylist.json
 
 ## Configuration — `config.yaml`
 - `settings.interval` — seconds between scans.
-- `settings.timeout` — default timeout per check (seconds).
+- `settings.timeout` — default timeout per check (seconds). Default 15: shared
+  hosting can spike well past 8s without being down.
+- `settings.retries` / `settings.retry_delay` — re-check a **failed** target
+  this many times (default 2, 3s apart) before calling it DOWN. This is what
+  stops a single slow response from flapping the state and firing a DOWN + UP
+  alert pair every few scans. `retries: 0` turns it off. A genuinely dead
+  target then costs `(retries + 1) × timeout`, so a scan with dead targets in
+  it takes longer than `interval`.
 - `settings.history` — number of samples kept for the sparkline / uptime %.
 - `settings.parallel` / `settings.workers` — enable concurrent checks and thread count.
 - `settings.sort_down_first` — `true` pushes DOWN targets to the top of the table.

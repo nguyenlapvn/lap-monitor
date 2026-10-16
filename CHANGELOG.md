@@ -8,6 +8,22 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 (`__version__`) and is shown in the dashboard header and via
 `python3 -m lap_monitor --version`.
 
+## [3.5.0] - 2026-10-16
+### Added
+- **Retries before declaring DOWN** (`settings.retries`, default 2, and
+  `settings.retry_delay`, default 3s). A failed check is repeated and only
+  counts as DOWN when every attempt fails; the detail then reads
+  `... (3 attempts)`. Fixes the flapping DOWN → UP alert pairs caused by a
+  single slow response on shared hosting. `retries: 0` restores the old
+  single-attempt behaviour.
+- A broken target definition (missing `url` / `host` / `port`) is detected in
+  `run_check()` and **not** retried - the scan would just stall on a result
+  that cannot change.
+
+### Changed
+- Default `settings.timeout` raised **8 → 15** seconds. This is a default:
+  an existing `config.yaml` that spells out `timeout: 8` keeps 8 until edited.
+
 ## [3.4.0] - 2026-10-16
 ### Added
 - **`lap-monitor edit <id>`** - change a target in place instead of

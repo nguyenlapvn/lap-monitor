@@ -36,7 +36,8 @@ EVENTS_SHOWN = 15
 VIEWER_REFRESH = 2
 
 
-def scan_once(states, default_timeout, parallel, workers):
+def scan_once(states, default_timeout, parallel, workers,
+              retries=0, retry_delay=0.0):
     """Scan all targets once and update state.
 
     Returns the list of state changes as (state, old, new, detail) tuples so the
@@ -47,7 +48,8 @@ def scan_once(states, default_timeout, parallel, workers):
     lock = threading.Lock()
 
     def do(s):
-        is_up, ms, detail = run_check(s.target, default_timeout)
+        is_up, ms, detail = run_check(s.target, default_timeout,
+                                      retries, retry_delay)
         changed, old, new = s.update(is_up, ms, detail)
         if changed:
             with lock:
@@ -74,6 +76,8 @@ class Engine:
         self.parallel = bool(s["parallel"])
         self.workers = max(1, int(s["workers"]))
         self.sort_down_first = bool(s.get("sort_down_first", True))
+        self.retries = max(0, int(s.get("retries", 2)))
+        self.retry_delay = max(0.0, float(s.get("retry_delay", 3)))
 
         self.alerters = build_alerters(cfg["alerts"])
         self.storage = build_storage(cfg["storage"])
@@ -105,7 +109,8 @@ class Engine:
 
     def scan(self):
         """One scan cycle: check, alert on change, persist. Returns changes."""
-        changes = scan_once(self.states, self.timeout, self.parallel, self.workers)
+        changes = scan_once(self.states, self.timeout, self.parallel,
+                            self.workers, self.retries, self.retry_delay)
         for tgt, old, new, detail in changes:
             notify_change(self.alerters, tgt.name, old, new, detail)
             self.storage.record_event(tgt.name, tgt.type, old, new, detail)

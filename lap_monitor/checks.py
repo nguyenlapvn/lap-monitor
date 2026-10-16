@@ -116,14 +116,44 @@ CHECKERS = {
     "tcp": check_tcp,
 }
 
+# What each target type needs before a check is worth running at all.
+REQUIRED_FIELDS = {"http": ("url",), "ping": ("host",), "tcp": ("host", "port")}
 
-def run_check(target, default_timeout):
-    """Run the right check for the type, wrapped so it can't crash the dashboard."""
+
+def _missing_fields(target, ttype):
+    return [f for f in REQUIRED_FIELDS.get(ttype, ()) if not target.get(f)]
+
+
+def run_check(target, default_timeout, retries=0, retry_delay=0.0):
+    """Run the right check for the type, wrapped so it can't crash the dashboard.
+
+    A failed check is retried up to ``retries`` times, ``retry_delay`` seconds
+    apart, and only counts as DOWN when every attempt fails. One slow response
+    is the normal cause of a false DOWN (shared hosting with a spiky TTFB), and
+    a single bad sample used to flip the state and fire an alert both ways.
+
+    A broken target definition is NOT retried - waiting on it would just stall
+    the scan for a result that cannot change.
+    """
     ttype = (target.get("type") or "").lower()
     fn = CHECKERS.get(ttype)
     if fn is None:
         return (False, None, f"invalid type: '{ttype}'")
-    try:
-        return fn(target, default_timeout)
-    except Exception as e:
-        return (False, None, f"error: {e}")
+    missing = _missing_fields(target, ttype)
+    if missing:
+        return (False, None, "missing " + " and ".join(f"'{f}'" for f in missing))
+
+    attempts = max(0, int(retries)) + 1
+    for attempt in range(attempts):
+        try:
+            is_up, ms, detail = fn(target, default_timeout)
+        except Exception as e:  # absolute safety net
+            is_up, ms, detail = (False, None, f"error: {e}")
+        if is_up:
+            return (is_up, ms, detail)
+        if attempt + 1 < attempts:
+            time.sleep(max(0.0, float(retry_delay)))
+
+    if attempts > 1:
+        detail = f"{detail} ({attempts} attempts)"
+    return (False, ms, detail)

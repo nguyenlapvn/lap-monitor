@@ -5,7 +5,14 @@
 
 settings:
   interval: 30      # Seconds to wait between scans
-  timeout: 8        # Default timeout per check (seconds)
+  timeout: 15       # Default timeout per check (seconds). Shared hosting can
+                    # spike well past 8s without actually being down.
+  retries: 2        # Re-check a FAILED target this many times before calling it
+                    # DOWN. 0 = off. Stops one slow response from flapping the
+                    # state (and firing a DOWN + UP alert pair) every few scans.
+  retry_delay: 3    # Seconds between those retries. Note: a genuinely dead
+                    # target now costs (retries+1) x timeout, so a scan with
+                    # dead targets takes longer than `interval`.
   history: 20       # Number of recent results kept for the sparkline / uptime %
   parallel: true    # true = check targets concurrently (faster with many targets)
   workers: 8        # Max threads when parallel = true (keep low to save RAM)
