@@ -8,6 +8,20 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 (`__version__`) and is shown in the dashboard header and via
 `python3 -m lap_monitor --version`.
 
+## [3.3.0] - 2026-10-16
+### Added
+- **IP column** in the **VPS / hosts** cell: the host/IP each target is checked
+  against, between Name and Type. Fixed at 15 cells so a full IPv4 always fits;
+  the port is left out (it still shows in the DOWN detail and `lap-monitor
+  list`). On a cell narrower than 56 columns the IP is dropped automatically so
+  the name stays readable.
+- `TargetState.address()` - the host for ping/tcp, the URL hostname for http.
+
+### Changed
+- The VPS cell gets a slightly wider share of the top row (4:3 against the other
+  two) to make room for the new column.
+- `_Scroller` calls its `make_table(rows, width)` callback with the cell width.
+
 ## [3.2.0] - 2026-06-15
 ### Added
 - **Market cells** (`market.py`): bottom-left now shows **₿ Crypto** prices with

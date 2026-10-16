@@ -19,7 +19,7 @@ The screen is split into **6 cells** (3 top, 3 bottom):
 ## Features
 - Checks **HTTP/HTTPS**, **Ping (ICMP)**, and **TCP port**.
 - **This machine:** live CPU / RAM / disk / load / uptime of the host (read from `/proc`, no extra deps).
-- **Websites / VPS:** color (green = UP, red = DOWN), **type icons**, response time (ms) colored by latency, **uptime %**, and a **history sparkline**. DOWN targets float to the top.
+- **Websites / VPS:** color (green = UP, red = DOWN), **type icons**, response time (ms) colored by latency, **uptime %**, and a **history sparkline**. DOWN targets float to the top. The VPS cell also shows the **IP / host** of each target (hidden automatically on a terminal too narrow for it).
 - **Recent events:** a log of state changes read from the data store.
 - **Summary** (counts, avg uptime/latency) and **Attention** (everything currently DOWN at a glance).
 - **Targets managed via CLI** (`lap-monitor add|list|remove|import`) — stored in the data store, no file to edit.

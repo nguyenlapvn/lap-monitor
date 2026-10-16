@@ -50,6 +50,10 @@ def ic(emoji, ascii_=""):
 # driven by the Live refresh thread. DOWN targets are pinned so they stay put.
 SCROLL_SECONDS_PER_ROW = 2.0
 
+# Narrowest target table that still has room for the IP column next to a
+# readable Name. Below it the IP is dropped (see _targets_table).
+MIN_WIDTH_FOR_IP = 56
+
 
 # ---------------------------------------------------------------------
 #  Small formatting helpers
@@ -82,6 +86,13 @@ def uptime_text(pct):
         return Text("—", style="dim")
     style = "green" if pct >= 99 else ("yellow" if pct >= 90 else "red")
     return Text(f"{pct:.0f}%", style=style)
+
+
+def address_text(s):
+    """IP/host cell. The port is left out on purpose - the column is sized for
+    an address, and the port already shows up in the DOWN detail."""
+    addr = s.address()
+    return Text(addr) if addr else Text("—", style="dim")
 
 
 def status_text(state):
@@ -179,6 +190,9 @@ class _Scroller:
     The scroll position is derived from the wall clock, so the animation is
     driven by Live's own refresh thread - no frame counter has to be threaded
     through the render loop.
+
+    ``make_table(rows, width)`` is called with the cell width so a table can
+    drop columns that no longer fit.
     """
 
     # A SIMPLE_HEAD table costs 4 lines around its data rows: a leading blank,
@@ -192,11 +206,12 @@ class _Scroller:
 
     def __rich_console__(self, console, options):
         height = options.height or options.max_height
+        width = options.max_width
         n = len(self.rows)
         capacity = max(1, height - self._HEADER_LINES)
 
         if n <= capacity:
-            yield self.make_table(self.rows)
+            yield self.make_table(self.rows, width)
             return
 
         usable = max(1, capacity - 1)          # leave one line for the indicator
@@ -210,13 +225,13 @@ class _Scroller:
         window = [scroll[(start + i) % len(scroll)] for i in range(min(slots, len(scroll)))]
         visible = pins + window
 
-        yield self.make_table(visible)
+        yield self.make_table(visible, width)
         hidden = n - len(visible)
         yield Text(f"  {ic('↕ ')}auto-scrolling · {hidden} more of {n}",
                    style="dim", overflow="ellipsis", no_wrap=True)
 
 
-def _targets_table(states, sort_down_first, show_type=False):
+def _targets_table(states, sort_down_first, show_type=False, show_addr=False):
     rows = states
     if sort_down_first:
         rows = sorted(states, key=lambda s: STATE_RANK.get(s.state, 1))
@@ -224,18 +239,32 @@ def _targets_table(states, sort_down_first, show_type=False):
     if not rows:
         return Align.center(Text("(no targets)", style="dim"), vertical="middle")
 
-    def make_table(visible):
+    def make_table(visible, width):
+        # The IP column is a fixed 15 cells - exactly a full IPv4. A ratio
+        # column would shrink below that in the narrow third-of-screen VPS
+        # cell and ellipsise the address, which defeats the point. Below
+        # MIN_WIDTH_FOR_IP those 15 cells would squeeze the name away instead,
+        # so the address is dropped and the old layout comes back.
+        addr = show_addr and width >= MIN_WIDTH_FOR_IP
+
         table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
                       pad_edge=False, row_styles=["", "on grey7"])
-        table.add_column("Name", no_wrap=True, ratio=3, overflow="ellipsis")
+        table.add_column("Name", no_wrap=True, ratio=2 if addr else 3,
+                         overflow="ellipsis")
+        if addr:
+            table.add_column("IP", no_wrap=True, width=15, overflow="ellipsis")
         if show_type:
             table.add_column("Type", justify="center", no_wrap=True)
         table.add_column("Status", justify="center", no_wrap=True)
         table.add_column("ms", justify="right", no_wrap=True)
         table.add_column("Up%", justify="right", no_wrap=True)
-        table.add_column("History", no_wrap=True, ratio=2)
+        # With an IP column in the row, the sparkline yields width to the name:
+        # it is already clipped at this size, a clipped name is harder to read.
+        table.add_column("History", no_wrap=True, ratio=1 if addr else 2)
         for s in visible:
             cells = [s.name]
+            if addr:
+                cells.append(address_text(s))
             if show_type:
                 cells.append(f"{ic(TYPE_ICON.get(s.type, ''))} {s.type}".strip())
             cells += [
@@ -272,7 +301,7 @@ def render_websites_panel(states, sort_down_first):
 
 
 def render_vps_panel(states, sort_down_first):
-    body = _targets_table(states, sort_down_first, show_type=True)
+    body = _targets_table(states, sort_down_first, show_type=True, show_addr=True)
     border = "red" if any(s.state == "DOWN" for s in states) else "green"
     return Panel(body, title=_panel_title(ic("📡 ") + "VPS / hosts", states),
                  border_style=border, box=box.ROUNDED, padding=(0, 1))
@@ -412,7 +441,7 @@ def render_bitcoin_panel(crypto):
 
     rows = list(crypto.items())
 
-    def make_table(visible):
+    def make_table(visible, width):
         table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
                       pad_edge=False, row_styles=["", "on grey7"])
         table.add_column("Coin", no_wrap=True, ratio=3)
@@ -450,7 +479,7 @@ def render_gold_panel(gold):
         return Panel(body, title=ic("🥇 ") + "Gold VN", border_style="bright_black",
                      box=box.ROUNDED, padding=(0, 1))
 
-    def make_table(visible):
+    def make_table(visible, width):
         table = Table(expand=True, box=box.SIMPLE_HEAD, header_style="bold magenta",
                       pad_edge=False, row_styles=["", "on grey7"])
         table.add_column("Type", no_wrap=True, ratio=3, overflow="ellipsis")
@@ -521,10 +550,12 @@ def build_layout(states, sysmon, market=None, countdown=None, sort_down_first=Tr
         Layout(name="top"),
         Layout(name="bottom"),
     )
+    # The VPS cell carries one column more than the others (IP), so it gets a
+    # slightly larger share of the row.
     root["top"].split_row(
-        Layout(name="q1"),
-        Layout(render_websites_panel(websites, sort_down_first), name="q2"),
-        Layout(render_vps_panel(vps, sort_down_first), name="q3"),
+        Layout(name="q1", ratio=3),
+        Layout(render_websites_panel(websites, sort_down_first), name="q2", ratio=3),
+        Layout(render_vps_panel(vps, sort_down_first), name="q3", ratio=4),
     )
     # Cell 1: two stacked sections - machine stats above, target summary below.
     root["q1"].split_column(

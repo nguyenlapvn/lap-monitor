@@ -2,6 +2,7 @@
 """Per-target runtime state: current status, last latency, rolling history."""
 
 from collections import deque
+from urllib.parse import urlsplit
 
 # How target types map to dashboard quadrants.
 WEBSITE_TYPES = ("http",)
@@ -35,6 +36,20 @@ class TargetState:
             return None
         ups = sum(1 for up, _ in self.history if up)
         return ups * 100.0 / len(self.history)
+
+    def address(self):
+        """Where the target points: the IP/host for ping & tcp, the hostname
+        for http. Empty when the target carries neither."""
+        host = self.target.get("host")
+        if host:
+            return str(host)
+        url = self.target.get("url")
+        if url:
+            try:
+                return urlsplit(url).hostname or url
+            except ValueError:
+                return url
+        return ""
 
     def is_website(self):
         return self.type in WEBSITE_TYPES
