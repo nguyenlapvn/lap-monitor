@@ -13,6 +13,7 @@ Modes:
 Target management (targets live in the data store, not a file):
     add <type> <value>   add a target  (type: http | ping | tcp)
     list                 list targets
+    edit <id> [--host|--port|--url|--name|...]   change a target in place
     remove <id>          remove a target by id
     enable/disable <id>  toggle a target
     import <file>        bulk-import targets from a JSON/YAML file
@@ -54,6 +55,18 @@ def build_parser():
 
     sub.add_parser("list", aliases=["ls"], help="list targets")
 
+    ped = sub.add_parser("edit", help="change an existing target (keeps its id)")
+    ped.add_argument("id", type=int)
+    ped.add_argument("--host", help="ping/tcp: new host or IP "
+                                    "(also accepts 'host:port')")
+    ped.add_argument("--port", type=int, help="tcp: new port")
+    ped.add_argument("--url", help="http: new url")
+    ped.add_argument("--name", help="new display name (history follows along)")
+    ped.add_argument("--expect", type=int, metavar="CODE",
+                     help="http: only this status code counts as UP")
+    ped.add_argument("--timeout", type=int, metavar="SEC",
+                     help="override the default timeout for this target")
+
     pr = sub.add_parser("remove", aliases=["rm"], help="remove a target by id")
     pr.add_argument("id", type=int)
 
@@ -84,6 +97,10 @@ def cli():
                    expect=args.expect, timeout=args.timeout, config_path=cfg)
     elif cmd in ("list", "ls"):
         manage.list_targets(config_path=cfg)
+    elif cmd == "edit":
+        manage.edit(args.id, host=args.host, port=args.port, url=args.url,
+                    name=args.name, expect=args.expect, timeout=args.timeout,
+                    config_path=cfg)
     elif cmd in ("remove", "rm"):
         manage.remove(args.id, config_path=cfg)
     elif cmd == "enable":

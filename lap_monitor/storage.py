@@ -66,10 +66,16 @@ class NullStorage:
     def list_targets(self, enabled_only=False):
         return []
 
+    def update_target(self, target_id, changes):
+        return None
+
     def remove_target(self, target_id):
         return False
 
     def set_enabled(self, target_id, enabled):
+        return False
+
+    def rename_history(self, old_name, new_name):
         return False
 
     def record_event(self, *a, **k):
@@ -149,6 +155,31 @@ class SqliteStorage:
         except sqlite3.Error:
             return []
 
+    def update_target(self, target_id, changes):
+        """Merge ``changes`` into a stored target. Returns the updated target
+        dict, or None if the id is unknown or the write failed."""
+        try:
+            row = self.conn.execute(
+                "SELECT data FROM targets WHERE id=?", (target_id,)).fetchone()
+            if row is None:
+                return None
+            try:
+                target = json.loads(row[0])
+            except (ValueError, TypeError):
+                return None
+            target.update(changes)
+            target.pop("id", None)          # the column is the id, not the blob
+            self.conn.execute(
+                "UPDATE targets SET name=?,type=?,data=? WHERE id=?",
+                (target.get("name"), target.get("type"), json.dumps(target),
+                 target_id),
+            )
+            self.conn.commit()
+            target["id"] = target_id
+            return target
+        except sqlite3.Error:
+            return None
+
     def remove_target(self, target_id):
         try:
             cur = self.conn.execute("DELETE FROM targets WHERE id=?", (target_id,))
@@ -165,6 +196,23 @@ class SqliteStorage:
             )
             self.conn.commit()
             return cur.rowcount > 0
+        except sqlite3.Error:
+            return False
+
+    def rename_history(self, old_name, new_name):
+        """Carry the snapshot and event log over to a renamed target - both are
+        keyed by name, so without this a rename looks like a brand-new target."""
+        if not old_name or old_name == new_name:
+            return False
+        try:
+            # 'name' is the snapshot primary key: clear the destination first.
+            self.conn.execute("DELETE FROM snapshot WHERE name=?", (new_name,))
+            self.conn.execute("UPDATE snapshot SET name=? WHERE name=?",
+                              (new_name, old_name))
+            self.conn.execute("UPDATE events SET name=? WHERE name=?",
+                              (new_name, old_name))
+            self.conn.commit()
+            return True
         except sqlite3.Error:
             return False
 
@@ -276,6 +324,15 @@ class JsonStorage:
             return [dict(t) for t in targets if t.get("enabled", True)]
         return [dict(t) for t in targets]
 
+    def update_target(self, target_id, changes):
+        for t in self.data.get("targets", []):
+            if t.get("id") == target_id:
+                t.update(changes)
+                t["id"] = target_id         # changes must never rewrite the id
+                self._flush()
+                return dict(t)
+        return None
+
     def remove_target(self, target_id):
         targets = self.data.get("targets", [])
         kept = [t for t in targets if t.get("id") != target_id]
@@ -292,6 +349,19 @@ class JsonStorage:
                 self._flush()
                 return True
         return False
+
+    def rename_history(self, old_name, new_name):
+        """Carry the snapshot and event log over to a renamed target."""
+        if not old_name or old_name == new_name:
+            return False
+        snap = self.data.get("snapshot", {})
+        if old_name in snap:
+            snap[new_name] = snap.pop(old_name)
+        for ev in self.data.get("events", []):
+            if ev.get("name") == old_name:
+                ev["name"] = new_name
+        self._flush()
+        return True
 
     def _flush(self):
         # Atomic write: temp file then replace, so a crash can't corrupt it.

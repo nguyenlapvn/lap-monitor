@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Target management commands (add / list / remove / enable / import).
+"""Target management commands (add / list / edit / remove / enable / import).
 
 Targets live in the data store (see storage.py), not in a file. These handlers
-back the `lap-monitor add|list|remove|enable|disable|import` CLI commands.
+back the `lap-monitor add|list|edit|remove|enable|disable|import` CLI commands.
 """
 
 import sys
@@ -111,6 +111,90 @@ def list_targets(config_path=None):
             "[green]yes[/green]" if on else "[red]no[/red]",
         )
     _console.print(table)
+
+
+def _host_changes(value):
+    """--host takes a bare host or the 'host:port' shorthand `add tcp` accepts.
+    A single trailing ':<digits>' is the port; anything else (an IPv6 literal,
+    which is all colons) is kept whole."""
+    host, sep, port = value.rpartition(":")
+    if sep and port.isdigit() and ":" not in host:
+        return {"host": host, "port": int(port)}
+    return {"host": value}
+
+
+def edit(target_id, host=None, port=None, url=None, name=None, expect=None,
+         timeout=None, config_path=None):
+    """Change fields of an existing target in place, keeping its id."""
+    store = _open_store(config_path)
+    target_id = int(target_id)
+
+    current = next((t for t in store.list_targets()
+                    if t.get("id") == target_id), None)
+    if current is None:
+        store.close()
+        sys.exit(f"No target with id #{target_id}.")
+
+    ttype = current.get("type")
+
+    def wrong_type(flag, wanted, hint=""):
+        store.close()
+        sys.exit(f"{flag} applies to {wanted} targets, but #{target_id} is "
+                 f"'{ttype}'.{hint}")
+
+    changes = {}
+    if host is not None:
+        if ttype not in ("ping", "tcp"):
+            wrong_type("--host", "ping/tcp", " Use --url instead.")
+        changes.update(_host_changes(host))
+    if port is not None:
+        if ttype != "tcp":
+            wrong_type("--port", "tcp")
+        changes["port"] = int(port)
+    if url is not None:
+        if ttype != "http":
+            wrong_type("--url", "http", " Use --host instead.")
+        changes["url"] = url if "://" in url else "https://" + url
+    if expect is not None:
+        if ttype != "http":
+            wrong_type("--expect", "http")
+        changes["expect_code"] = int(expect)
+    if timeout is not None:
+        changes["timeout"] = int(timeout)
+    if name is not None:
+        changes["name"] = name
+
+    if not changes:
+        store.close()
+        sys.exit("Nothing to change. Pass at least one of "
+                 "--host / --port / --url / --name / --expect / --timeout.")
+
+    old_name = current.get("name")
+    old_endpoint = _endpoint(current)
+
+    updated = store.update_target(target_id, changes)
+    if updated is None:
+        store.close()
+        sys.exit(f"Failed to update target #{target_id}.")
+
+    # History and events are stored per name, so a rename has to take them
+    # along - otherwise the target looks brand new and loses its uptime %.
+    renamed = name is not None and name != old_name
+    if renamed:
+        store.rename_history(old_name, name)
+    store.close()
+
+    _console.print(f"[green]Updated[/green] #{target_id}: "
+                   f"[bold]{updated.get('name')}[/bold] "
+                   f"({ttype} → {_endpoint(updated)})")
+    if _endpoint(updated) != old_endpoint:
+        _console.print(f"[dim]  endpoint: {old_endpoint} → "
+                       f"{_endpoint(updated)}[/dim]")
+    if renamed:
+        _console.print(f"[dim]  name: {old_name} → {name} "
+                       f"(history and events moved with it)[/dim]")
+    _console.print("[dim]Restart the service to pick it up:  "
+                   "sudo systemctl restart lap-monitor[/dim]")
 
 
 def remove(target_id, config_path=None):

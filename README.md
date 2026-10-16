@@ -123,6 +123,24 @@ lap-monitor remove 3                               # delete #3
 lap-monitor import mylist.json                     # bulk-import (see below)
 ```
 
+### Changing a target
+
+`edit` changes a target in place — the id, the history and the uptime % all
+stay, so a VPS that moved to a new IP doesn't have to be deleted and re-added:
+
+```bash
+lap-monitor edit 4 --host 103.75.185.99            # new IP (ping/tcp)
+lap-monitor edit 4 --host 10.0.0.5:2222            # new IP + port in one go
+lap-monitor edit 4 --port 2222                     # port only (tcp)
+lap-monitor edit 7 --url https://web99vn.com       # new url (http)
+lap-monitor edit 7 --expect 200 --timeout 5
+lap-monitor edit 4 --name "SG04 new box"           # rename; history follows
+```
+
+Flags are checked against the target's type: `--url` / `--expect` are http only,
+`--host` is ping/tcp, `--port` is tcp. Since history and events are keyed by
+**name**, a `--name` change moves them to the new name instead of losing them.
+
 After changing targets, restart the service so it picks them up:
 ```bash
 sudo systemctl restart lap-monitor
@@ -209,7 +227,7 @@ lap-monitor/                 # project root (clone folder, name it as you like)
 │   ├── system.py            # local machine stats (Q1)
 │   ├── alerts.py            # Telegram + alert dispatch
 │   ├── storage.py           # SQLite / JSON persistence (targets+events+snapshot)
-│   ├── manage.py            # target CLI: add/list/remove/import
+│   ├── manage.py            # target CLI: add/list/edit/remove/import
 │   ├── ui.py                # 4-quadrant rendering
 │   └── app.py               # engine + run/serve/dashboard modes
 ├── config.example.yaml      # config template (tracked in git)

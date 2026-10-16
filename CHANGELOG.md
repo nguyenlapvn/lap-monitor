@@ -8,6 +8,16 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 (`__version__`) and is shown in the dashboard header and via
 `python3 -m lap_monitor --version`.
 
+## [3.4.0] - 2026-10-16
+### Added
+- **`lap-monitor edit <id>`** - change a target in place instead of
+  remove + add. Flags: `--host` (accepts `host:port`), `--port`, `--url`,
+  `--name`, `--expect`, `--timeout`. The id is kept, and each flag is validated
+  against the target's type (`--url` http only, `--host` ping/tcp, `--port` tcp).
+- `storage.update_target(id, changes)` and `storage.rename_history(old, new)`
+  on both backends. Snapshot and events are keyed by name, so `--name` carries
+  the history and the event log over rather than orphaning them.
+
 ## [3.3.0] - 2026-10-16
 ### Added
 - **IP column** in the **VPS / hosts** cell: the host/IP each target is checked
