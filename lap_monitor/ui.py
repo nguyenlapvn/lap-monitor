@@ -25,7 +25,7 @@ from . import __version__
 
 # Sparkline characters (low -> high) for the response-time history.
 SPARK_CHARS = "▁▂▃▄▅▆▇█"
-TYPE_ICON = {"http": "🌐", "ping": "📡", "tcp": "🔌"}
+TYPE_ICON = {"http": "🌐", "ping": "📡", "tcp": "🔌", "cmd": "🔧"}
 STATE_RANK = {"DOWN": 0, "UNKNOWN": 1, "UP": 2}
 
 # Emoji rendering. The Linux framebuffer console (TERM=linux) draws emoji as
@@ -363,6 +363,7 @@ def render_summary_panel(states):
     n_http = sum(1 for s in states if s.type == "http")
     n_ping = sum(1 for s in states if s.type == "ping")
     n_tcp = sum(1 for s in states if s.type == "tcp")
+    n_cmd = sum(1 for s in states if s.type == "cmd")
 
     row("Targets", Text(str(total)))
     row("UP", Text(str(up), style="green"))
@@ -375,6 +376,8 @@ def render_summary_panel(states):
         by_type = f"{n_http}🌐 {n_ping}📡 {n_tcp}🔌"
     else:
         by_type = f"H:{n_http} P:{n_ping} T:{n_tcp}"
+    if n_cmd:                       # only widen the row when cmd targets exist
+        by_type += f" {n_cmd}🔧" if USE_EMOJI else f" C:{n_cmd}"
     row("By type", Text(by_type, style="dim"))
 
     return Panel(grid, title=ic("📊 ") + "Summary", border_style="blue",

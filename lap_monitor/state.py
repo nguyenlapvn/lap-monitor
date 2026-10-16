@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 # How target types map to dashboard quadrants.
 WEBSITE_TYPES = ("http",)
-VPS_TYPES = ("ping", "tcp")
+VPS_TYPES = ("ping", "tcp", "cmd")
 
 
 class TargetState:

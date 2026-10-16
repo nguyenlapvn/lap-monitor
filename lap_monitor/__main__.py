@@ -11,7 +11,7 @@ Modes:
     dashboard  read-only viewer of the data store.
 
 Target management (targets live in the data store, not a file):
-    add <type> <value>   add a target  (type: http | ping | tcp)
+    add <type> <value>   add a target  (type: http | ping | tcp | cmd)
     list                 list targets
     edit <id> [--host|--port|--url|--name|...]   change a target in place
     remove <id>          remove a target by id
@@ -44,12 +44,15 @@ def build_parser():
     sub.add_parser("dashboard", help="read-only viewer of the store")
 
     pa = sub.add_parser("add", help="add a target")
-    pa.add_argument("type", choices=["http", "ping", "tcp"])
-    pa.add_argument("value", help="url (http) | host (ping) | host:port (tcp)")
-    pa.add_argument("--name", help="custom display name")
+    pa.add_argument("type", choices=["http", "ping", "tcp", "cmd"])
+    pa.add_argument("value", help="url (http) | host (ping) | host:port (tcp) "
+                                  "| shell command (cmd)")
+    pa.add_argument("--name", help="custom display name (required for cmd)")
     pa.add_argument("--port", type=int, help="port for tcp (if not in value)")
     pa.add_argument("--expect", type=int, metavar="CODE",
-                    help="http: only this status code counts as UP")
+                    help="http: required status code | cmd: required exit code")
+    pa.add_argument("--contains", metavar="TEXT",
+                    help="cmd: output must contain this text to count as UP")
     pa.add_argument("--timeout", type=int, metavar="SEC",
                     help="override the default timeout for this target")
 
@@ -61,9 +64,12 @@ def build_parser():
                                     "(also accepts 'host:port')")
     ped.add_argument("--port", type=int, help="tcp: new port")
     ped.add_argument("--url", help="http: new url")
+    ped.add_argument("--command", help="cmd: new shell command")
+    ped.add_argument("--contains", metavar="TEXT",
+                     help="cmd: output must contain this text to count as UP")
     ped.add_argument("--name", help="new display name (history follows along)")
     ped.add_argument("--expect", type=int, metavar="CODE",
-                     help="http: only this status code counts as UP")
+                     help="http: required status code | cmd: required exit code")
     ped.add_argument("--timeout", type=int, metavar="SEC",
                      help="override the default timeout for this target")
 
@@ -94,12 +100,14 @@ def cli():
         app.dashboard(config_path=cfg)
     elif cmd == "add":
         manage.add(args.type, args.value, name=args.name, port=args.port,
-                   expect=args.expect, timeout=args.timeout, config_path=cfg)
+                   expect=args.expect, timeout=args.timeout,
+                   contains=args.contains, config_path=cfg)
     elif cmd in ("list", "ls"):
         manage.list_targets(config_path=cfg)
     elif cmd == "edit":
         manage.edit(args.id, host=args.host, port=args.port, url=args.url,
                     name=args.name, expect=args.expect, timeout=args.timeout,
+                    command=args.command, contains=args.contains,
                     config_path=cfg)
     elif cmd in ("remove", "rm"):
         manage.remove(args.id, config_path=cfg)

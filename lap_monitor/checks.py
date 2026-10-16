@@ -89,6 +89,58 @@ def check_ping(target, default_timeout):
     return (False, None, "no reply")
 
 
+def check_cmd(target, default_timeout):
+    """Run a shell command: exit code 0 (or 'expect_code') = UP.
+
+    This is the way to watch a service that only listens on localhost - rather
+    than exposing MySQL/MongoDB to the network just to probe it, ask the remote
+    host over SSH:
+
+        ssh -o BatchMode=yes -o ConnectTimeout=5 root@10.0.0.5 \\
+            systemctl is-active mysql
+
+    'contains' additionally requires a string in the output, for commands that
+    exit 0 even when they report a problem.
+
+    The command runs through the shell, as the user the service runs as. It
+    comes from the local data store, so treat `import` of a targets file from
+    someone else the same way you would treat running their script.
+    """
+    command = target.get("command")
+    if not command:
+        return (False, None, "missing 'command'")
+    timeout = int(target.get("timeout", default_timeout))
+    expect = target.get("expect_code")
+    contains = target.get("contains")
+
+    start = time.monotonic()
+    try:
+        proc = subprocess.run(
+            command,
+            shell=True,
+            timeout=timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return (False, None, f"timeout after {timeout}s")
+    except Exception as e:
+        return (False, None, f"error: {e}")
+
+    ms = (time.monotonic() - start) * 1000.0
+    out = (proc.stdout or b"").decode("utf-8", "replace").strip()
+    first = out.splitlines()[0][:60] if out else ""
+
+    wanted = int(expect) if expect is not None else 0
+    if proc.returncode != wanted:
+        return (False, None, f"exit {proc.returncode}" +
+                             (f": {first}" if first else ""))
+    if contains and contains not in out:
+        return (False, None, f"output missing '{contains}'" +
+                             (f": {first}" if first else ""))
+    return (True, ms, first or f"exit {proc.returncode}")
+
+
 def check_tcp(target, default_timeout):
     """TCP: a successful connection to host:port = UP."""
     host = target.get("host")
@@ -114,10 +166,12 @@ CHECKERS = {
     "http": check_http,
     "ping": check_ping,
     "tcp": check_tcp,
+    "cmd": check_cmd,
 }
 
 # What each target type needs before a check is worth running at all.
-REQUIRED_FIELDS = {"http": ("url",), "ping": ("host",), "tcp": ("host", "port")}
+REQUIRED_FIELDS = {"http": ("url",), "ping": ("host",), "tcp": ("host", "port"),
+                   "cmd": ("command",)}
 
 
 def _missing_fields(target, ttype):

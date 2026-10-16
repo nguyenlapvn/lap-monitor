@@ -35,10 +35,13 @@ def _endpoint(t):
         return t.get("host", "?")
     if ttype == "tcp":
         return f"{t.get('host', '?')}:{t.get('port', '?')}"
+    if ttype == "cmd":
+        return t.get("command", "?")
     return "?"
 
 
-def _build_target(ttype, value, name=None, port=None, expect=None, timeout=None):
+def _build_target(ttype, value, name=None, port=None, expect=None, timeout=None,
+                  contains=None):
     """Turn CLI arguments into a full target dict."""
     t = {"type": ttype}
     if ttype == "http":
@@ -59,6 +62,17 @@ def _build_target(ttype, value, name=None, port=None, expect=None, timeout=None)
         t["host"] = host
         t["port"] = int(prt)
         t["name"] = name or f"{host}:{prt}"
+    elif ttype == "cmd":
+        # No sensible name can be derived from a command line ("ssh" tells you
+        # nothing), and the name is the key history is stored under.
+        if not name:
+            sys.exit('A cmd target needs a name: --name "MySQL - VPS2".')
+        t["command"] = value
+        t["name"] = name
+        if expect is not None:
+            t["expect_code"] = int(expect)
+        if contains:
+            t["contains"] = contains
     else:
         sys.exit(f"Unknown type: {ttype}")
     if timeout is not None:
@@ -70,9 +84,9 @@ def _build_target(ttype, value, name=None, port=None, expect=None, timeout=None)
 #  Commands
 # ---------------------------------------------------------------------
 def add(ttype, value, name=None, port=None, expect=None, timeout=None,
-        config_path=None):
+        contains=None, config_path=None):
     store = _open_store(config_path)
-    target = _build_target(ttype, value, name, port, expect, timeout)
+    target = _build_target(ttype, value, name, port, expect, timeout, contains)
     tid = store.add_target(target)
     store.close()
     if tid is None:
@@ -93,6 +107,8 @@ def list_targets(config_path=None):
         _console.print("  lap-monitor add http https://example.com")
         _console.print("  lap-monitor add ping 1.1.1.1")
         _console.print("  lap-monitor add tcp 10.0.0.5:22")
+        _console.print('  lap-monitor add cmd "ssh root@10.0.0.5 systemctl '
+                       'is-active mysql" --name "MySQL - VPS2"')
         return
 
     table = Table(box=box.ROUNDED, header_style="bold magenta")
@@ -124,7 +140,7 @@ def _host_changes(value):
 
 
 def edit(target_id, host=None, port=None, url=None, name=None, expect=None,
-         timeout=None, config_path=None):
+         timeout=None, command=None, contains=None, config_path=None):
     """Change fields of an existing target in place, keeping its id."""
     store = _open_store(config_path)
     target_id = int(target_id)
@@ -136,16 +152,26 @@ def edit(target_id, host=None, port=None, url=None, name=None, expect=None,
         sys.exit(f"No target with id #{target_id}.")
 
     ttype = current.get("type")
+    # The flag that does carry the endpoint for each type, so a mismatch can
+    # point at the right one instead of guessing.
+    endpoint_flag = {"http": "--url", "ping": "--host", "tcp": "--host",
+                     "cmd": "--command"}
 
-    def wrong_type(flag, wanted, hint=""):
+    def wrong_type(flag, wanted):
         store.close()
+        right = endpoint_flag.get(ttype)
+        # Only point at the other endpoint flag when an endpoint flag was the
+        # one misused - "--port ... use --host" would just mislead.
+        hint = (f" Use {right} instead."
+                if right and right != flag
+                and flag in ("--host", "--url", "--command") else "")
         sys.exit(f"{flag} applies to {wanted} targets, but #{target_id} is "
                  f"'{ttype}'.{hint}")
 
     changes = {}
     if host is not None:
         if ttype not in ("ping", "tcp"):
-            wrong_type("--host", "ping/tcp", " Use --url instead.")
+            wrong_type("--host", "ping/tcp")
         changes.update(_host_changes(host))
     if port is not None:
         if ttype != "tcp":
@@ -153,11 +179,19 @@ def edit(target_id, host=None, port=None, url=None, name=None, expect=None,
         changes["port"] = int(port)
     if url is not None:
         if ttype != "http":
-            wrong_type("--url", "http", " Use --host instead.")
+            wrong_type("--url", "http")
         changes["url"] = url if "://" in url else "https://" + url
+    if command is not None:
+        if ttype != "cmd":
+            wrong_type("--command", "cmd")
+        changes["command"] = command
+    if contains is not None:
+        if ttype != "cmd":
+            wrong_type("--contains", "cmd")
+        changes["contains"] = contains
     if expect is not None:
-        if ttype != "http":
-            wrong_type("--expect", "http")
+        if ttype not in ("http", "cmd"):
+            wrong_type("--expect", "http/cmd")
         changes["expect_code"] = int(expect)
     if timeout is not None:
         changes["timeout"] = int(timeout)
@@ -166,8 +200,8 @@ def edit(target_id, host=None, port=None, url=None, name=None, expect=None,
 
     if not changes:
         store.close()
-        sys.exit("Nothing to change. Pass at least one of "
-                 "--host / --port / --url / --name / --expect / --timeout.")
+        sys.exit("Nothing to change. Pass at least one of --host / --port / "
+                 "--url / --command / --contains / --name / --expect / --timeout.")
 
     old_name = current.get("name")
     old_endpoint = _endpoint(current)

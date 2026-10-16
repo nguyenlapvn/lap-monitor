@@ -8,6 +8,27 @@ The current version lives in [`lap_monitor/__init__.py`](lap_monitor/__init__.py
 (`__version__`) and is shown in the dashboard header and via
 `python3 -m lap_monitor --version`.
 
+## [3.6.0] - 2026-10-16
+### Added
+- **`cmd` target type** - run a shell command, exit code 0 = UP. This is how to
+  watch a service that only listens on `127.0.0.1` (MySQL, MongoDB, Redis):
+  ask the host over SSH rather than exposing the port to the network.
+  ```bash
+  lap-monitor add cmd "ssh -o BatchMode=yes root@10.0.0.5 systemctl is-active mysql" \
+              --name "MySQL - VPS2"
+  ```
+  `--expect CODE` requires a different exit code and `--contains TEXT` also
+  requires that text in the output (for commands that exit 0 while reporting a
+  problem). The first output line becomes the status detail, so a failure shows
+  as `exit 3: inactive`. Retries apply to `cmd` like any other type.
+- `edit` gained `--command` and `--contains`; `--expect` now also covers `cmd`.
+
+### Changed
+- `cmd` targets render in the **VPS / hosts** cell (icon 🔧) and are counted in
+  the Summary "By type" row, which only widens when such targets exist.
+- A wrong-type `edit` flag now points at the right one per type
+  (`--command` for cmd, `--url` for http, `--host` for ping/tcp).
+
 ## [3.5.0] - 2026-10-16
 ### Added
 - **Retries before declaring DOWN** (`settings.retries`, default 2, and

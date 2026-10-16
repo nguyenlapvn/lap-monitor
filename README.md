@@ -17,7 +17,9 @@ The screen is split into **6 cells** (3 top, 3 bottom):
 ```
 
 ## Features
-- Checks **HTTP/HTTPS**, **Ping (ICMP)**, and **TCP port**.
+- Checks **HTTP/HTTPS**, **Ping (ICMP)**, **TCP port**, and **shell command**
+  (`cmd`, exit code 0 = UP) — the way to watch a MySQL/MongoDB/Redis that only
+  listens on localhost, by asking the host over SSH instead of exposing it.
 - **This machine:** live CPU / RAM / disk / load / uptime of the host (read from `/proc`, no extra deps).
 - **Websites / VPS:** color (green = UP, red = DOWN), **type icons**, response time (ms) colored by latency, **uptime %**, and a **history sparkline**. DOWN targets float to the top. The VPS cell also shows the **IP / host** of each target (hidden automatically on a terminal too narrow for it).
 - **Recent events:** a log of state changes read from the data store.
@@ -114,6 +116,8 @@ lap-monitor add http https://example.com           # name derived from the domai
 lap-monitor add http https://api.example.com --name "Main API" --expect 200
 lap-monitor add ping 1.1.1.1 --name "VPS Singapore"
 lap-monitor add tcp 10.0.0.5:22 --name "SSH VPS"   # or: add tcp 10.0.0.5 --port 22
+lap-monitor add cmd "ssh -o BatchMode=yes root@10.0.0.5 systemctl is-active mysql" \
+            --name "MySQL - VPS2"                  # exit code 0 = UP
 
 lap-monitor list                                   # show targets + ids
 lap-monitor disable 3                              # stop checking #3 (keep it)
@@ -149,6 +153,46 @@ sudo systemctl restart lap-monitor
 Options: `--name` (custom label), `--timeout SEC` (override default), and for
 http `--expect CODE` (only that status counts as UP).
 
+### Watching a service that only listens on localhost
+
+MySQL, MongoDB, Redis and friends normally bind to `127.0.0.1`, so a `tcp`
+check from the monitoring box cannot reach them — and opening those ports to
+the network just to probe them is a bad trade. The `cmd` type asks the remote
+host instead, over the SSH port that is already open:
+
+```bash
+lap-monitor add cmd "ssh -o BatchMode=yes -o ConnectTimeout=5 \
+    root@10.0.0.5 systemctl is-active mysql"   --name "MySQL - VPS2"
+
+lap-monitor add cmd "ssh -o BatchMode=yes root@10.0.0.5 redis-cli ping" \
+    --name "Redis - VPS2" --contains PONG
+```
+
+Exit code 0 = UP. `--expect CODE` requires a different exit code, and
+`--contains TEXT` additionally requires the text in the output — useful for
+commands that exit 0 while still reporting a problem. The output's first line
+becomes the status detail, so a failure reads `exit 3: inactive` in the
+Attention cell and in the Telegram alert.
+
+Setting up the SSH key — note it belongs to **the user the service runs as**,
+which is not necessarily the one you are typing as:
+
+```bash
+systemctl show lap-monitor -p User          # who the service runs as
+sudo -u <that-user> ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+sudo -u <that-user> ssh-copy-id root@10.0.0.5
+sudo -u <that-user> ssh -o BatchMode=yes root@10.0.0.5 systemctl is-active mysql
+```
+
+Always pass `-o BatchMode=yes`: without it ssh can sit waiting on a password or
+host-key prompt until the check times out. The first connection also needs the
+host key accepted — the `ssh-copy-id` above does that, or add
+`-o StrictHostKeyChecking=accept-new`.
+
+The command runs through the shell as the service user. It comes from your own
+data store, so treat `import` of a targets file from someone else exactly like
+running their script.
+
 ### Bulk import
 `import` reads a JSON/YAML file (same two styles as the old targets file) and
 adds everything to the store — handy for migrating a big list:
@@ -181,6 +225,8 @@ lap-monitor import mylist.json
 - **HTTP:** 2xx–3xx = UP; 4xx = UP (server still alive); 5xx or connect error = DOWN. `expect_code` makes it stricter.
 - **Ping:** a reply = UP.
 - **TCP:** a successful connection = UP.
+- **cmd:** exit code 0 = UP (`expect_code` for a different code, `contains` to also require text in the output).
+- Any of them: a failure is retried `settings.retries` times before it counts as DOWN.
 
 ### Enable Telegram alerts
 In `config.yaml`:
@@ -229,7 +275,7 @@ lap-monitor/                 # project root (clone folder, name it as you like)
 │   ├── __init__.py          # package marker + version (runs on import)
 │   ├── __main__.py          # CLI entry — `python3 -m lap_monitor`
 │   ├── config.py            # load config.yaml (+ target helpers)
-│   ├── checks.py            # http / ping / tcp checks
+│   ├── checks.py            # http / ping / tcp / cmd checks
 │   ├── state.py             # per-target runtime state (history, uptime)
 │   ├── system.py            # local machine stats (Q1)
 │   ├── alerts.py            # Telegram + alert dispatch

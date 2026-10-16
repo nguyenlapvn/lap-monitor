@@ -4,7 +4,7 @@ Run it with:  python3 -m lap_monitor [run|serve|dashboard]
 
 Modules:
     config  - load config.yaml and the targets file
-    checks  - http / ping / tcp check functions
+    checks  - http / ping / tcp / cmd check functions
     state   - per-target runtime state (history, uptime)
     system  - local machine stats (CPU/RAM/disk/load/uptime)
     alerts  - alert channels (Telegram) + state-change dispatch
@@ -15,4 +15,4 @@ Modules:
 """
 
 __app_name__ = "lap-monitor"
-__version__ = "3.5.0"
+__version__ = "3.6.0"
